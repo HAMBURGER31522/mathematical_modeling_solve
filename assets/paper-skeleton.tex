@@ -1,0 +1,98 @@
+% 论文骨架：无官方模板且中文写作时的默认起点（xelatex + ctex）。
+% 有官方模板时以官方 class 为准，不要用本文件覆盖官方模板。
+% 编译：latexmk -xelatex -halt-on-error -interaction=nonstopmode main.tex
+%       无 latexmk 时：xelatex main.tex ×2（有 bib 则 xelatex → biber → xelatex ×2）
+\documentclass[12pt,a4paper]{ctexart}
+
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{caption}
+\usepackage{listings}
+\usepackage[hidelinks]{hyperref}
+
+\graphicspath{{../图/}}
+\captionsetup{font=small}
+
+% 数字宏：由 scripts/ledger.py --emit-tex 从 results_ledger.json 生成。
+% 正文只引用宏，禁止手抄数字；本文件不存在时先跑一次生成命令。
+\IfFileExists{numbers.tex}{\input{numbers.tex}}{\newcommand{\NUMBERSMISSING}{}}
+
+\title{题号 + 题目名称}
+\author{}                       % 匿名：不写姓名与学校
+\date{}
+
+\begin{document}
+\maketitle
+\thispagestyle{empty}
+
+\begin{abstract}
+逐问一句「方法 + 关键数值结论」，数字一律引用宏（如 \verb|\qOneMainMetric|），
+机会约束类结论必须同时给出置信下界。最后一句总括模型特色。
+摘要是评委唯一必读页；章程要求一页时用 \texttt{scripts/latex\_gate.py --aux} 程序化核实。
+
+\textbf{关键词：} 关键词一；关键词二；关键词三
+\end{abstract}
+
+\newpage
+\setcounter{page}{1}
+
+\section{问题重述}
+简明复述，不抄题面全文。
+
+\section{模型假设}
+每条假设附合理性依据；口径决策表的披露版放这里（采用口径 + 被否口径的定量归谬一句话）。
+
+\section{符号说明}
+\begin{table}[htbp]
+  \centering
+  \caption{符号说明}
+  \begin{tabularx}{0.9\textwidth}{llX}
+    \toprule
+    符号 & 单位 & 含义 \\
+    \midrule
+    $x$ & -- & 示例 \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\section{问题一：分析与建模}
+\subsection{问题分析与准备}
+\subsection{模型建立与求解}
+\subsection{结果检验}
+证书、收敛诊断、与独立核验路线的互证；差异 $\gtrsim \Delta$ 必须解释。
+
+\begin{figure}[htbp]
+  \centering
+  % \includegraphics[width=0.8\linewidth]{q1_main.pdf}
+  \caption{图题自足：不看正文也能说明这张图证明了什么（非等比缩放须标注比例）。}
+  \label{fig:q1main}
+\end{figure}
+
+\section{问题二：分析与建模}
+
+\section{灵敏度与稳健性分析}
+
+\section{模型优缺点与改进方向}
+缺点写实：实际达到的证据等级（S1--S4）、残余间隙、未排除的区域。
+
+\begin{thebibliography}{9}
+  \bibitem{ref1} 作者. 文献题名[J]. 期刊, 年份, 卷(期): 页码.
+\end{thebibliography}
+
+\appendix
+\section{附录：明细表与推导过程}
+正文只放证据链主线，明细表、逐点扫描、推导全过程放这里——这是在不砍证据的前提下压正文页数的唯一手段。
+
+\section{附录：核心代码与复现说明}
+\begin{lstlisting}[basicstyle=\ttfamily\small,breaklines=true]
+# 复现命令示例
+python run_all.py --stage smoke
+\end{lstlisting}
+
+\section{附录：AI 工具使用声明}
+按赛事章程规定的格式与位置如实声明（漏报可取消评奖资格）。
+
+\end{document}
