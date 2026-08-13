@@ -1,18 +1,28 @@
 # 图表规范：证据链导向
 
-## 实现层：figure-forge 作图库（可用即必用）
+## 实现层：figure-forge 作图库（对比择优，暂不设默认）
 
-本文件定义"图要达到什么标准"；**怎么画**优先交给 figure-forge 库（23 个期刊级 recipe 模板 + 论点合同 + 硬拒绝清单 + run_qa 出图前自检，MIT）。查找顺序：
+本文件定义"图要达到什么标准"；**怎么画**有两条路：本文件的生成规范手写 matplotlib，或 figure-forge 库（23 个期刊级 recipe 模板 + 论点合同 + 硬拒绝清单 + run_qa 出图前自检，MIT）。当前处于**对比评估期**：两条路都要走，用证据决定谁当默认。查找顺序：
 
 1. 环境变量 `FIGURE_FORGE_DIR`；
 2. 从本 skill 根目录逐级向上查找名为 `figure-forge/`（含 `core/qa.py`）的目录；
 3. `git clone https://github.com/HAMBURGER31522/create_image_fukinggood.git figure-forge`。
 
-找到即读其 `SKILL.md` 并按其工作流出图：先填论点合同（图题=结论句）→ 过硬拒绝清单（饼图/分组柱/双Y轴/jet 命中换构图）→ 从 `recipes/` 抄最接近的模板改数据 → `run_qa` 通过才 `save_figure`。其统计框"设置+结果+判定"三段式与"图内数字必须 f-string 引用计算变量"两条，与本 skill 的 ledger 数字纪律同源，必须遵守。
+找到即读其 `SKILL.md` 并按其工作流出图：先填论点合同（图题=结论句）→ 过硬拒绝清单（饼图/分组柱/双Y轴/jet 命中换构图）→ 从 `recipes/` 抄最接近的模板改数据 → `run_qa` 通过才 `save_figure`。其统计框"设置+结果+判定"三段式与"图内数字必须 f-string 引用计算变量"两条，与本 skill 的 ledger 数字纪律同源，两条路都必须遵守。
 
-**分工不重叠**：figure-forge 的 `run_qa` 是出图方自检（坏图不落盘）；本 skill 的 `scripts/figqa.py` + contact sheet 是 G5 独立审计，**两者都做，后者不因前者豁免**。三步均不可用时，退回本文件"生成规范"手写 matplotlib，其余 G5 要求不变。
+### 对比评估协议（A/B）
 
-**使用留痕（防"接了不用"）**：`图/图表清单.md` 每图记"来源模板"列——figure-forge 的 recipe 名，或"手写 + 一句理由"（如"构型示意图无对应 recipe"）。figure-forge 可用而整批零使用且无逐图理由 = G5 fail。
+figure-forge 可用时，**挑 2–3 张有代表性的正文图各画两版**（A = 本文件生成规范手写，B = figure-forge recipe），同数据同结论，写 `结果/作图AB对比.md`：
+
+| 图 | A 手写 | B figure-forge | 胜方 | 判据（信息密度/论证力/视觉工艺/耗时） |
+
+判定逐项写理由，不写"B 更好看"。选图覆盖不同 archetype（如一张对比类、一张场/分布类），别都挑 recipe 现成的那类。**其余图各自按当轮更省事的路子画**，不强制。评估期只要求这份对比表存在且结论有理由，**不因某条路"没被用"判 fail**。
+
+**升格为默认的条件**：连续两轮实战循环中 figure-forge 在 AB 对比里全面或基本胜出（含裁判在 figures 维的独立评分佐证），则把本节改写为"可用即必用"，`图表清单.md` 的"来源模板"列升级为硬项。反之则保留手写为主、recipe 备选。
+
+**分工不重叠**：figure-forge 的 `run_qa` 是出图方自检（坏图不落盘）；本 skill 的 `scripts/figqa.py` + contact sheet 是 G5 独立审计，**两者都做，后者不因前者豁免**。figure-forge 不可用时全部手写，AB 表记 N/A 与原因，其余 G5 要求不变。
+
+**使用留痕**：`图/图表清单.md` 每图记"来源模板"列——figure-forge 的 recipe 名，或"手写"。这是给对比评估攒证据用的，不是门禁。
 
 ## 每问的证据链图组（按适用性配置，不设数量指标）
 
