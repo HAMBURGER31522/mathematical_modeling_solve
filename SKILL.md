@@ -117,6 +117,8 @@ locator 写法（页码/图号/单元格）见 algorithm-redlines.md §locator�
 
 证据链四环（构型/机理 → 收敛或诊断 → 证书 → 灵敏度）**按适用性配置**：随机迭代类必须有收敛诊断；带约束认证的结论必须有证书图或证书表（按家族证书类型配，不硬套 MC 收敛曲线与置信下界图）；结论依赖关键参数才需要灵敏度图；不适用写 N/A 理由。装饰图不进正文。细则见 figures-standards.md。
 
+**实现层优先走 figure-forge 作图库**（查找顺序与工作流见 figures-standards.md 首节）：可用即必用其 recipe 模板 + 论点合同 + `run_qa`，不可用才手写 matplotlib；figqa.py 独立审计照做不豁免。
+
 先跑自动检查 `python scripts/figqa.py 图/ --tex 论文/main.tex --out 结果/figqa.json --contact 图/_contact.png`（空图/重复图/分辨率/未被引用），再逐张人工过重叠、误差带、截断轴、图注自足、缩放比。
 
 **G5 通过标准**：`图/图表清单.md` 逐图落盘（文件名、证据链环节、被正文引用处、质检结论 PASS/FAIL）；`结果/图面质检.md` 逐张写人工目检结论；`结果/figqa.json` 无未处置 FAIL；contact sheet `图/_contact.png` 已导出且目检记录在案；无与 ledger 数字矛盾的图。

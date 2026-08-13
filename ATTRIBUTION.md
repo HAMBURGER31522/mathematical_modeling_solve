@@ -24,3 +24,7 @@
 - 证书-样本预算联动（Δ 来源约束、u ≤ Δ/3）、一次封存终验、不达标处置顺序、双路互证、答案稳定性复核、唯一权威答案。
 - 数据体检、降级协议（D0/D1/D2）、时间预算与冻结点、复现闭环。
 - `scripts/` 全部辅助脚本（certify / ledger / audit_numbers / figqa / latex_gate）与 `assets/paper-skeleton.tex`。
+
+## 可选运行时依赖（不合入本仓库，运行期按路径/克隆调用）
+
+- [figure-forge](https://github.com/HAMBURGER31522/create_image_fukinggood)（MIT，用户自有作图库）：P5 出图的首选实现层——期刊级 recipe 模板、论点合同、硬拒绝清单、run_qa 出图自检。查找与降级顺序见 references/figures-standards.md 首节；不可用时本 skill 退回内置生成规范，功能不受阻断。

@@ -1,5 +1,17 @@
 # 图表规范：证据链导向
 
+## 实现层：figure-forge 作图库（可用即必用）
+
+本文件定义"图要达到什么标准"；**怎么画**优先交给 figure-forge 库（23 个期刊级 recipe 模板 + 论点合同 + 硬拒绝清单 + run_qa 出图前自检，MIT）。查找顺序：
+
+1. 环境变量 `FIGURE_FORGE_DIR`；
+2. 从本 skill 根目录逐级向上查找名为 `figure-forge/`（含 `core/qa.py`）的目录；
+3. `git clone https://github.com/HAMBURGER31522/create_image_fukinggood.git figure-forge`。
+
+找到即读其 `SKILL.md` 并按其工作流出图：先填论点合同（图题=结论句）→ 过硬拒绝清单（饼图/分组柱/双Y轴/jet 命中换构图）→ 从 `recipes/` 抄最接近的模板改数据 → `run_qa` 通过才 `save_figure`。其统计框"设置+结果+判定"三段式与"图内数字必须 f-string 引用计算变量"两条，与本 skill 的 ledger 数字纪律同源，必须遵守。
+
+**分工不重叠**：figure-forge 的 `run_qa` 是出图方自检（坏图不落盘）；本 skill 的 `scripts/figqa.py` + contact sheet 是 G5 独立审计，**两者都做，后者不因前者豁免**。三步均不可用时，退回本文件"生成规范"手写 matplotlib，其余 G5 要求不变。
+
 ## 每问的证据链图组（按适用性配置，不设数量指标）
 
 四环：**构型/机理图 → 收敛/诊断图 → 证书图 → 灵敏度图**。配置规则：
