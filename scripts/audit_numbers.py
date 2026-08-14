@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""三向一致性审计：论文 tex ↔ results_ledger.json ↔ 磁盘结果文件。
+"""三向一致性审计：论文 tex <-> results_ledger.json <-> 磁盘结果文件。
 
 对应 references/algorithm-redlines.md R6 与 computation-standards §7。只依赖标准库。
 
@@ -191,7 +191,7 @@ def audit(ledger_path, numbers_tex, tex_files, root, out_path, tol=1e-6):
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description="论文 ↔ 账本 ↔ 结果文件 三向审计")
+    ap = argparse.ArgumentParser(description="论文 <-> 账本 <-> 结果文件 三向审计")
     ap.add_argument("--ledger", required=True)
     ap.add_argument("--numbers", default="论文/numbers.tex")
     ap.add_argument("--tex", nargs="+", required=True)

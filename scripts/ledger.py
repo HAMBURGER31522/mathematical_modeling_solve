@@ -129,7 +129,10 @@ def validate(led: dict, warnings: list = None) -> list:
         if m and isinstance(v, (int, float)):
             shown = float(m.group())
             dec = len(m.group().split(".")[1]) if "." in m.group() else 0
-            scale = 100.0 if "%" in d else 1.0
+            # display 带 % 时，value 可能已是百分数（unit="%"）或仍是比例（unit="1"）。
+            # 只有后者才需要乘 100——按 unit 判，别一律缩放。
+            unit = str(e.get("unit", "")).strip()
+            scale = 100.0 if ("%" in d and unit not in ("%", "percent", "pct")) else 1.0
             if abs(round(v * scale, dec) - shown) > 10 ** (-dec) / 2 + 1e-12:
                 problems.append(f"{where} display {d!r} 与 value {v} 对不上（显示精度只由 display 决定，"
                                 "但不得与 value 矛盾）")
