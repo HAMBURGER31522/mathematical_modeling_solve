@@ -1,0 +1,73 @@
+% ============================================================================
+% 主控文件：分节 tex 的装配点。编译入口只有这一个文件。
+%   latexmk -xelatex -halt-on-error -interaction=nonstopmode main.tex
+%   无 latexmk：xelatex main.tex 跑两遍（有 bib：xelatex -> biber -> xelatex 两遍）
+%
+% 【铁律】有官方模板 / 指定 class 时以官方模板为准，本文件只贡献「分节装配」
+%   这一结构：把官方 class 换进 \documentclass，\input 顺序照抄下方即可。
+%   不得用本文件覆盖官方模板。
+% ============================================================================
+\documentclass[12pt,a4paper]{ctexart}
+
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb,bm}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{caption}
+\usepackage{listings}
+\usepackage[hidelinks]{hyperref}
+
+\graphicspath{{../图/}{图/}}
+\captionsetup{font=small}
+
+% ---------------------------------------------------------------------------
+% 数值宏注入位。numbers.tex 由台账发射：
+%   python scripts/ledger.py --emit-tex 结果/results_ledger.json -o 论文/numbers.tex
+%
+% 【踩过的坑，别再犯】
+%   1. 忘了写这一行 -> 全文宏未定义，编译报一堆 Undefined control sequence，
+%      而 numbers.tex 里明明有。缺宏时先查这一行在不在。
+%   2. LaTeX 宏名不能含数字：\qNumOne 合法、\qNum1 非法。台账键一律用纯字母
+%      驼峰（qOneThreshold / qTwoRateLow），发射器负责转换。
+%   3. 下面用 \IfFileExists 保护，但故意让缺失可见：没有台账时正文会打出
+%      [NUMBERS-MISSING]，而不是静默编译过去骗自己。
+% ---------------------------------------------------------------------------
+\IfFileExists{numbers.tex}{%
+  \input{numbers.tex}%
+}{%
+  \newcommand{\NUMBERSMISSING}{\textbf{[NUMBERS-MISSING]}}%
+  \typeout{!!! numbers.tex 未找到：先跑 ledger.py --emit-tex}%
+}
+
+\title{题号 + 题目名称}
+\author{}   % 匿名：不写姓名、学校、指导教师
+\date{}
+
+\begin{document}
+
+% 首屏：队号 / 组别 / 承诺书按赛制要求填。禁止出现「待填」——
+% 连续两轮盲评栽在这一条，rules 维直接扣到 1 分。
+\input{00-摘要.tex}
+
+\newpage
+\setcounter{page}{1}
+
+\input{01-问题重述.tex}
+\input{02-问题分析.tex}
+\input{03-模型假设.tex}
+\input{04-符号说明.tex}
+
+% 每问一个文件。某一问写长了（超过 6 页）再按更细粒度拆成两片：
+%   05a-问题一-分析与准备.tex / 05b-问题一-建模与求解.tex
+\input{05-问题一.tex}
+\input{06-问题二.tex}
+\input{07-问题三.tex}
+\input{08-问题四.tex}
+
+\input{09-模型检验与灵敏度.tex}
+\input{10-模型评价与推广.tex}
+\input{11-参考文献.tex}
+\input{12-附录.tex}
+
+\end{document}

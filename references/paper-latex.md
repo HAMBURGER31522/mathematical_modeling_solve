@@ -1,5 +1,13 @@
 # 论文写作与 LaTeX 编译
 
+## 论文工程形态：分节 tex + 主控编译（钉死）
+
+论文一律拆成**分节 `.tex`**，由 `main.tex` 用 `\input` 装配后统一编译，禁止把全文塞进单文件。
+
+- 收益：编译错误的行号落在具体一节里可定位；出完数的问先写先编译，不被还在算的问阻塞；改一节不必重排全文，修错循环更快；某一问写长了可再拆成「分析与准备 / 建模与求解」两片。
+- 骨架与分节清单见 `assets/paper/`（该目录 README 含编译修错速查表）。
+- 有官方模板时：把官方 class 换进 `main.tex`，`\input` 结构照旧——分节是工程形态，与模板归属无关。
+
 ## 结构模板（中文赛事通用；美赛等按官方模板对应调整）
 
 1. 摘要：逐问一句"方法 + 关键数值结论"，末句总括模型特色。摘要是评委唯一必读页，数字必须与正文一致且 ⊆ ledger 证书达标条目。
@@ -23,7 +31,7 @@
 
 ## 数字回填
 
-- `python scripts/ledger.py --emit-tex 结果/results_ledger.json -o 论文/numbers.tex` 生成宏（宏名由键名派生，含 Bound/N/Threshold/Gap/Unit 派生宏），正文关键数值**只引用宏**。无官方模板时论文骨架用 `assets/paper-skeleton.tex`（xelatex+ctex，预留 numbers.tex 注入位与附录分层；有官方模板时不得用它覆盖官方 class）。
+- `python scripts/ledger.py --emit-tex 结果/results_ledger.json -o 论文/numbers.tex` 生成宏（宏名由键名派生，含 Bound/N/Threshold/Gap/Unit 派生宏），正文关键数值**只引用宏**。无官方模板时用分节模板包 `assets/paper/`（主控 `main.tex` + 13 个分节 tex，预留 numbers.tex 注入位与附录分层；有官方模板时只沿用其分节装配结构，不得覆盖官方 class）。
 - 宏注入失败时的人工核对仅为临时措施：审计报告必须逐条给出论文页码 + ledger 键，禁止凭记忆手抄。
 - 结果章节出现的裸数字（非年份/章节号/引用号）都应可追溯到 ledger；G6 审计逐条比对。
 

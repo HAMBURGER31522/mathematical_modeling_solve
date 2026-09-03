@@ -130,7 +130,7 @@ locator 写法（页码/图号/单元格）见 algorithm-redlines.md §locator�
 细则见 paper-latex.md，骨架：
 
 - **篇幅口径**：完整性优先的对象是**证据链**，不是页数。正文只承载证据链主线（模型设定、关键推导结论、主结果与证书、最关键的图、检验结论）；明细表、逐点扫描、推导全过程、次要对照、源码进附录。章程有建议页数时争取正文落在建议值内——这是 rules 维不失分的必要动作；删节判据是"删掉是否丢失证据链一环"，会丢的**移附录而不是删**；实在压不进时在 G7 台账记录为知情扣分项。
-- **数字回填**：`python scripts/ledger.py --emit-tex 结果/results_ledger.json -o 论文/numbers.tex` 生成宏（含下界/样本量/阈值派生宏），关键数值正文只引用宏；宏注入失败时的人工核对是临时措施，审计报告必须逐条给论文页码 + ledger 键。无官方模板时论文骨架用 `assets/paper-skeleton.tex`。
+- **数字回填**：`python scripts/ledger.py --emit-tex 结果/results_ledger.json -o 论文/numbers.tex` 生成宏（含下界/样本量/阈值派生宏），关键数值正文只引用宏；宏注入失败时的人工核对是临时措施，审计报告必须逐条给论文页码 + ledger 键。无官方模板时用分节模板包 `assets/paper/`（主控 `main.tex` + 13 个分节 tex，见该目录 README）。
 - **自审三轮**：① Claim-Evidence 映射（每个结论指到图/表/ledger 键/代码）；② 反过度主张扫描，词表 `最优|最低|证明|显著|必然|可忽略|严格|满足约束|可行|达标|推荐方案|最终答案|全局`，摘要与结论中每个数字必须 ⊆ ledger 中证书达标的 authoritative 条目，机会约束数字旁必须出现下界值；③ **终审强度校准**：对摘要 + 结论 + 各问答案重跑 depth-review 第一、二问，措辞强度不得高于任何一处实际等级，落盘 `结果/审查/终审强度校准.md`。
 - **答案唯一性**：每问最终答案在摘要/正文/图表/结论中是同一个数；交叉验证值只出现在检验小节或附录并注明"用于互证，不作为答案"。
 
@@ -183,7 +183,8 @@ references 之间可交叉引用（红线↔规范↔审查互相指），按指
 | figqa.py | 空图/重复图/分辨率/未引用检查 + contact sheet | `python scripts/figqa.py 图/ --tex 论文/main.tex` |
 | latex_gate.py | 编译日志阻断项/非阻断项分类、页数与摘要页核实 | `python scripts/latex_gate.py 论文/main.log --aux 论文/main.aux` |
 
-`assets/paper-skeleton.tex`：无官方模板时的中文论文骨架（xelatex+ctex，含 numbers.tex 注入位与附录分层），本机编译冒烟通过；**有官方模板时不得用它覆盖官方 class**。
+`assets/paper/`：**分节论文模板包**——主控 `main.tex` 装配 13 个分节 tex（摘要/重述/分析/假设/符号/四问/检验/评价/文献/附录），每个分节文件顶部写死该节的写作合同与常见扣分点；含 numbers.tex 注入位（带 `[NUMBERS-MISSING]` 显式失败标记）、编译修错循环速查表（README）。本机 xelatex 冒烟通过（5 页，退出码 0）。
+分节而非单文件的理由：基线 A 与 Mrite 的 tex 链路都是分节 + 主控编译——编译错误可定位到节、出数快的问先写先编、改一节不重排全文、某问写长了可再拆「分析与准备 / 建模与求解」两片。**有官方模板时不得用它覆盖官方 class**，只沿用其分节装配结构。
 
 ## 加分项（门禁全绿且预算有余时）
 

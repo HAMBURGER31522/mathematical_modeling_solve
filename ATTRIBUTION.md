@@ -12,7 +12,7 @@
 
 ## 仅参考做法/设计思想（未复制任何文本）
 
-- [Rzna-5559/Mrite](https://github.com/Rzna-5559/Mrite)：仓库无 LICENSE 文件，仅 README 声明 MIT 而无授权正文，从严按"仅参考做法"处理（证据快照见融合仓库 scorecards/license-evidence-mrite.md，含访问日期）。参考的做法：求解计划先行、两阶段执行（先算后画）、xelatex 编译错误门禁、排版优化循环、摘要页数 aux 验证。
+- [Rzna-5559/Mrite](https://github.com/Rzna-5559/Mrite)：仓库无 LICENSE 文件，仅 README 声明 MIT 而无授权正文，从严按"仅参考做法"处理（证据快照见融合仓库 scorecards/license-evidence-mrite.md，含访问日期）。参考的做法：求解计划先行、两阶段执行（先算后画）、xelatex 编译错误门禁、排版优化循环、摘要页数 aux 验证、**分节 tex + 主控 \input 装配的论文工程形态**（该形态同为基线 A 论文的既有结构；`assets/paper/` 的全部文件内容为原创撰写，未复制上游任何文本）。
 - yushui2022/MathModel-Skill（无许可证）：阶段交接契约、运行清单哈希、结果 JSON 回填正文的设计思想，全部独立重实现并修复其实测缺陷（门禁必须理解统计语义、渲染失败不得静默降级）。
 - XiaoMaColtAI/math-modeling-skill（无 LICENSE）与 jihe520/MathModelAgent（自定义非商用条款，禁止二次组合）：**未合入任何内容**；本 skill P7 的编译门禁、复现闭环等相似环节系独立设计，与二者无承继关系。
 
