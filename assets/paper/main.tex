@@ -3,9 +3,13 @@
 %   latexmk -xelatex -halt-on-error -interaction=nonstopmode main.tex
 %   无 latexmk：xelatex main.tex 跑两遍（有 bib：xelatex -> biber -> xelatex 两遍）
 %
+% 【本结构的来历】对齐同题人工基线交付物（53 页）的实际分节：
+%   12 个顶层 input；每问再拆「分析与准备 / 建模与求解」两片；
+%   模型检验独立成大章；附录分三层（正文附录 / 补充图表 / 源程序）；
+%   AI 工具使用声明独立成节。篇幅预算见 README.md。
+%
 % 【铁律】有官方模板 / 指定 class 时以官方模板为准，本文件只贡献「分节装配」
-%   这一结构：把官方 class 换进 \documentclass，\input 顺序照抄下方即可。
-%   不得用本文件覆盖官方模板。
+%   这一结构：把官方 class 换进 \documentclass，input 顺序照抄下方即可。
 % ============================================================================
 \documentclass[12pt,a4paper]{ctexart}
 
@@ -13,8 +17,10 @@
 \usepackage{amsmath,amssymb,bm}
 \usepackage{graphicx}
 \usepackage{booktabs}
+\usepackage{longtable}
 \usepackage{tabularx}
 \usepackage{caption}
+\usepackage{subcaption}
 \usepackage{listings}
 \usepackage[hidelinks]{hyperref}
 
@@ -30,7 +36,7 @@
 %      而 numbers.tex 里明明有。缺宏时先查这一行在不在。
 %   2. LaTeX 宏名不能含数字：\qNumOne 合法、\qNum1 非法。台账键一律用纯字母
 %      驼峰（qOneThreshold / qTwoRateLow），发射器负责转换。
-%   3. 下面用 \IfFileExists 保护，但故意让缺失可见：没有台账时正文会打出
+%   3. 下面用 IfFileExists 保护，但故意让缺失可见：没有台账时正文会打出
 %      [NUMBERS-MISSING]，而不是静默编译过去骗自己。
 % ---------------------------------------------------------------------------
 \IfFileExists{numbers.tex}{%
@@ -53,21 +59,16 @@
 \newpage
 \setcounter{page}{1}
 
-\input{01-问题重述.tex}
-\input{02-问题分析.tex}
+\input{01-引言.tex}
+\input{02-总体分析.tex}
 \input{03-模型假设.tex}
 \input{04-符号说明.tex}
-
-% 每问一个文件。某一问写长了（超过 6 页）再按更细粒度拆成两片：
-%   05a-问题一-分析与准备.tex / 05b-问题一-建模与求解.tex
-\input{05-问题一.tex}
-\input{06-问题二.tex}
-\input{07-问题三.tex}
-\input{08-问题四.tex}
-
-\input{09-模型检验与灵敏度.tex}
-\input{10-模型评价与推广.tex}
-\input{11-参考文献.tex}
-\input{12-附录.tex}
+\input{05-模型的建立与求解.tex}
+\input{06-模型检验.tex}
+\input{07-模型评价.tex}
+\input{08-模型改进推广.tex}
+\input{09-AI工具使用声明.tex}
+\input{10-参考文献.tex}
+\input{11-附录.tex}
 
 \end{document}
