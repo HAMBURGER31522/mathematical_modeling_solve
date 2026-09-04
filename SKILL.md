@@ -186,6 +186,12 @@ python scripts/degenerate.py --fn 求解/core/simulation.py:conducts \n    --thr
    **清理清单（交付包内必须为零）**：`__pycache__/`、`*.pyc`、**`.pytest_cache/`**、`.aux/.log/.fls/.fdb_latexmk/.out/.synctex.gz`、临时渲染目录。（我方历史交付物是三家候选里唯一没清干净的——`.pytest_cache` 漏在清单外。）
 4. **复现闭环**（在交付目录内）：必须落一个**可执行入口脚本**（`reproduce.py` 或 `reproduce.ps1`），而不是只在 README 里写命令——解包后不看论文也能跑起来。入口与 ledger 的 source.script 同源；用最小可核对子集再生 ledger 对应键且文件名逐一对应；论文引用的每个结果文件必须能被 run_all 写出，写不出 = fail。禁止"工作区能跑、交付包不能跑"。
 5. manifest 逐文件（相对路径、SHA-256、生成命令）与包内比对；压缩后解压抽查。
+6. **出门扫描（阻断项，退出码必须为 0）**：`python scripts/pkg_scan.py <交付目录>`——
+   扫描疑似凭据、绝对路径、包外依赖、运行产物残留。
+   **实测教训**：一份已判「R7 全 PASS」的交付物，`run_mc.py` 第 16 行写着 `USER, PWD = 'root', '<真实口令>'`，
+   工作区在 gitignore 里所以历史清洗扫不到，而交付物是要拷进 winner 目录上传的——**差一步就把凭据推上公开仓库**。
+   同份还有 5 处硬编码 `F:\...` 绝对路径与 5 个 `.pytest_cache` 残留，出门扫描一次全抓出（11 个阻断项）。
+   **凭据必须换掉（改环境变量/外部凭据文件）而不只是把字符串删掉**；绝对路径改为包内相对路径。
 
 **G7 通过标准**：编译阻断项清零；检查单全勾；复现闭环通过。
 
@@ -248,6 +254,7 @@ references 之间可交叉引用（红线↔规范↔审查互相指），按指
 | ledger.py | 账本结构校验（含唯一权威答案）、依赖哈希冻结、stale 传播、numbers.tex 宏生成 | `--validate` / `--freeze` / `--stale-check --write` / `--emit-tex -o 论文/numbers.tex` |
 | audit_numbers.py | 论文↔账本↔结果文件三向审计 + 未走宏数字清单 | `--ledger … --numbers … --tex 论文/main.tex --out 结果/审计报告.md` |
 | figqa.py | 空图/重复图/分辨率/未引用检查 + contact sheet | `python scripts/figqa.py 图/ --tex 论文/main.tex` |
+| pkg_scan.py | **交付包出门扫描（P7 阻断）**：疑似凭据／绝对路径／包外依赖／运行产物残留 | `python scripts/pkg_scan.py deliverable/` |
 | degenerate.py | **退化规模检验（R13）**：n=0／n=1／阈值→0／阈值→大 + 阈值敏感性；两个独立探测器抓口径错误 | `python scripts/degenerate.py --fn 模块:conducts --threshold 1.8 --n-probe 354` |
 | latex_gate.py | 编译日志阻断项/非阻断项分类、页数与摘要页核实 | `python scripts/latex_gate.py 论文/main.log --aux 论文/main.aux` |
 
