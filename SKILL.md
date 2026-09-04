@@ -195,6 +195,23 @@ python scripts/degenerate.py --fn 求解/core/simulation.py:conducts \n    --thr
 
 **G7 通过标准**：编译阻断项清零；检查单全勾；复现闭环通过。
 
+## 官方脚本不可替代（2026-09-04，独立 refusion 的核心结论）
+
+**`scripts/` 下的脚本是门禁的执行体，不是参考实现。禁止自写替代品来"通过"门禁。**
+
+实测教训：一份交付物自写了 `emit_ledger.py`（绕过 `ledger.py`）、`figures_mc.py`（绕过图数一致性）、
+`rules_gate.py`（只查关键词命中，绕过 `compliance`）。结果是**所有门禁记录都是交付者给自己发的**——
+skill 里那些正确的规范（共享 core、独立 oracle、证书分离、三向审计）一条都没真正执行，
+而交付物看起来门禁全绿。
+
+硬条款：
+
+1. **authoritative 数字必须经官方链路**：`ledger.py --validate` → `--freeze` → `--emit-tex` → `audit_numbers.py`。
+   自写发射器／分析器的产物只能标 `role: intermediate`，**不得进入论文**。
+2. 每个 Gate 的记录必须贴出**官方脚本的命令与退出码**。贴自写脚本的输出 = 该 Gate 未执行。
+3. 需要项目特有逻辑时，写成官方脚本的**输入**（配置、fixture、适配函数），而不是另起一套流程。
+4. 确有必要替换官方脚本时，必须在降级记录里写明理由、差异与自证方式，并由裁判单独判定。
+
 ## 门禁通则（任何 Gate 都适用）
 
 0. **每个 Gate 必须给出机器可检验的最小命令集与退出码**，落盘 `结果/gates/G<N>.md`：
