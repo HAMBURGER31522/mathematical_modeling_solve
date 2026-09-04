@@ -198,6 +198,9 @@ references 之间可交叉引用（红线↔规范↔审查互相指），按指
 
 **辅助脚本（`scripts/`，纯标准库，直接调用，别现写公式）**：
 
+> 调用时一律带 `PYTHONDONTWRITEBYTECODE=1`（或跑完清 `__pycache__`）——否则 skill 目录会被自己的运行产物污染，违反临时文件纪律。这条是自检里真实抓到过的。
+
+
 | 脚本 | 用途 | 典型调用 |
 |---|---|---|
 | certify.py | Wilson/CP **上下界** + **三态证书**（feasible／excluded／**inconclusive**）、Bonferroni 校正、由阈值反解所需样本量。区间跨过阈值时只能称「证据不足」，**不得称「不可行」**；inconclusive 会直接给出要下结论还需多少样本 | `python scripts/certify.py --k 39668 --n 40000 --threshold 0.90 --delta 0.005`；`--solve-n --p-hat 0.905 --threshold 0.90` |
