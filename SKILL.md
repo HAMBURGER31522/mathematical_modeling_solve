@@ -190,11 +190,13 @@ references 之间可交叉引用（红线↔规范↔审查互相指），按指
 
 | 脚本 | 用途 | 典型调用 |
 |---|---|---|
-| certify.py | Wilson/Clopper-Pearson 单侧下界、Bonferroni 校正、达标判定、由阈值反解所需样本量 | `python scripts/certify.py --k 39668 --n 40000 --threshold 0.90 --delta 0.005`；`--solve-n --p-hat 0.905 --threshold 0.90` |
+| certify.py | Wilson/CP **上下界** + **三态证书**（feasible／excluded／**inconclusive**）、Bonferroni 校正、由阈值反解所需样本量。区间跨过阈值时只能称「证据不足」，**不得称「不可行」**；inconclusive 会直接给出要下结论还需多少样本 | `python scripts/certify.py --k 39668 --n 40000 --threshold 0.90 --delta 0.005`；`--solve-n --p-hat 0.905 --threshold 0.90` |
 | ledger.py | 账本结构校验（含唯一权威答案）、依赖哈希冻结、stale 传播、numbers.tex 宏生成 | `--validate` / `--freeze` / `--stale-check --write` / `--emit-tex -o 论文/numbers.tex` |
 | audit_numbers.py | 论文↔账本↔结果文件三向审计 + 未走宏数字清单 | `--ledger … --numbers … --tex 论文/main.tex --out 结果/审计报告.md` |
 | figqa.py | 空图/重复图/分辨率/未引用检查 + contact sheet | `python scripts/figqa.py 图/ --tex 论文/main.tex` |
 | latex_gate.py | 编译日志阻断项/非阻断项分类、页数与摘要页核实 | `python scripts/latex_gate.py 论文/main.log --aux 论文/main.aux` |
+
+`assets/reproduce.py`：**交付包复现入口模板**——P7 要求交付目录内必须有可执行入口（只读复核台账↔宏↔论文一致性 + 最小重算子集），不能只在 README 里写命令。
 
 `assets/paper/`：**分节论文模板包**——主控 `main.tex` 装配 13 个分节 tex（摘要/重述/分析/假设/符号/四问/检验/评价/文献/附录），每个分节文件顶部写死该节的写作合同与常见扣分点；含 numbers.tex 注入位（带 `[NUMBERS-MISSING]` 显式失败标记）、编译修错循环速查表（README）。本机 xelatex 冒烟通过（5 页，退出码 0）。
 分节而非单文件的理由：基线 A 与 Mrite 的 tex 链路都是分节 + 主控编译——编译错误可定位到节、出数快的问先写先编、改一节不重排全文、某问写长了可再拆「分析与准备 / 建模与求解」两片。**有官方模板时不得用它覆盖官方 class**，只沿用其分节装配结构。
