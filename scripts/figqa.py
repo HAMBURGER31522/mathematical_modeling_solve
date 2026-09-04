@@ -99,6 +99,8 @@ def main(argv=None):
     ap.add_argument("--tex", nargs="*", default=[], help="正文 tex，用于检查图是否被引用")
     ap.add_argument("--out", default="结果/figqa.json")
     ap.add_argument("--contact", default="图/_contact.png")
+    ap.add_argument("--draft", action="store_true",
+                    help="骨架阶段：把图未被正文引用降级为 WARN；成稿与 G5 门禁不得加此开关")
     a = ap.parse_args(argv)
 
     used = referenced_figures(a.tex) if a.tex else set()
@@ -142,17 +144,25 @@ def main(argv=None):
                     rec["fail"].append(f"灰度标准差 {std:.2f} 过低，疑似空白图")
         if a.tex and os.path.basename(p).lower() not in used and \
                 os.path.splitext(os.path.basename(p))[0].lower() not in {os.path.splitext(u)[0] for u in used}:
-            rec["warn"].append("未被正文 \\includegraphics 引用（未引用的图移附录或删除）")
+            msg = ("未被正文 \\includegraphics 引用：图做出来却没进论文＝论证链断了。"
+                   "要么在正文引用并配解读段，要么移进补充图表附录并在正文指路，要么删除。")
+            (rec["warn"] if a.draft else rec["fail"]).append(msg)
         n_fail += len(rec["fail"]); n_warn += len(rec["warn"])
         results.append(rec)
 
-    top_warn = []
+    top_warn, top_fail = [], []
     if a.tex and not used:
-        top_warn.append("正文一张图都没引用（\\includegraphics 为 0）：骨架阶段正常，成稿阶段即 G5 fail")
-        n_warn += 1
+        m = "正文一张图都没引用（\\includegraphics 为 0）"
+        if a.draft:
+            top_warn.append(m + "：骨架阶段正常，成稿阶段即 G5 fail"); n_warn += 1
+        else:
+            top_fail.append(m + "：成稿阶段 G5 fail"); n_fail += 1
+    if a.tex and used and not a.draft and len(used) * 2 < len(files):
+        top_fail.append(f"正文只引用了 {len(used)} 张，图目录里 {len(files)} 个文件：过半的图没进论文，检查是否漏接关键结果图")
+        n_fail += 1
     contact_note = contact_sheet([p for p in files if os.path.splitext(p)[1].lower() in RASTER], a.contact)
     report = {"figdir": a.figdir, "n_figures": len(files), "n_fail": n_fail, "n_warn": n_warn,
-              "top_warn": top_warn, "skipped_files": skipped,
+              "top_fail": top_fail, "top_warn": top_warn, "skipped_files": skipped,
               "contact_sheet": contact_note,
               "manual_still_required": "逐张目检（重叠/出界/误差带/截断轴/图注自足/缩放比）仍须写入 结果/图面质检.md",
               "figures": results}
