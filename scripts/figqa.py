@@ -38,9 +38,39 @@ def sha256_file(path):
     return h.hexdigest()
 
 
+def _expand_inputs(paths, seen=None, depth=0):
+    """递归展开 \\input / \\include。
+
+    分节论文的 main.tex 里几乎只有 \\input，不展开就会一张图都找不到，
+    于是"正文一张图都没引用"这条硬门禁会对完全正常的交付物误判（CR 实测指出）。
+    """
+    if seen is None:
+        seen = []
+    if depth > 8:
+        return seen
+    for path in paths:
+        path = os.path.normpath(path)
+        if path in seen or not os.path.exists(path):
+            continue
+        seen.append(path)
+        try:
+            with open(path, encoding="utf-8", errors="replace") as f:
+                txt = f.read()
+        except Exception:
+            continue
+        txt = re.sub(r"(?<!\\)%.*", "", txt)
+        base = os.path.dirname(path)
+        kids = []
+        for m in re.finditer(r"\\(?:input|include)\s*\{([^}]+)\}", txt):
+            name = m.group(1).strip()
+            kids.append(os.path.join(base, name if name.endswith(".tex") else name + ".tex"))
+        _expand_inputs(kids, seen, depth + 1)
+    return seen
+
+
 def referenced_figures(tex_paths):
     used = set()
-    for p in tex_paths:
+    for p in _expand_inputs(list(tex_paths)):
         with open(p, encoding="utf-8", errors="replace") as f:
             txt = f.read()
         txt = re.sub(r"(?<!\\)%.*", "", txt)

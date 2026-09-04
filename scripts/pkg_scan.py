@@ -33,8 +33,12 @@ SECRET_PATTERNS = [
     (r"(?i)\b(api[_-]?key|secret|token)\s*[:=]\s*['\"][A-Za-z0-9_\-]{16,}['\"]", "疑似密钥/令牌"),
     (r"sk-[A-Za-z0-9]{20,}", "疑似 OpenAI 风格密钥"),
     (r"-----BEGIN [A-Z ]*PRIVATE KEY-----", "私钥文件内容"),
-    (r"(?i)\b(username|user)\s*[:=]\s*['\"]root['\"][^\n]{0,80}(pwd|passwd|password)", "root 账号+口令同行"),
     (r"(?i)ssh://[^\s'\"]*:[^\s'\"@]+@", "URL 内嵌凭据"),
+    # 元组／多重赋值：HOST, PORT, USER, PWD = 'x', 1, 'root', 'secret'
+    # 单键模式对这种形状会漏检——真实泄露正是这个形状（契约测试抓到的破口）。
+    # 用 . 而非 [^\n]：re 默认 . 不跨行，等价且不必写换行转义。
+    (r"(?im)^.*\b(pwd|passwd|password|secret|token|api[_-]?key)\b.*=.*['\"][^'\"]{6,}['\"]",
+     "赋值语句左侧出现凭据类标识符，同行有长字符串字面量"),
 ]
 
 ABS_PATTERNS = [

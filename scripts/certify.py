@@ -273,7 +273,21 @@ def main(argv=None) -> int:
         "pass": passed,
     }
     if verdict == "inconclusive":
-        n_crit, n_pow = solve_n(p_hat, a.threshold, alpha_eff, a.method, a.power)
+        # 契约：无论能否解出所需样本量，都必须输出完整 verdict JSON。
+        # CR 实测指出：p_hat 低于阈值时 solve_n 会中途退出，导致三态协议根本没输出。
+        try:
+            n_crit, n_pow = solve_n(p_hat, a.threshold, alpha_eff, a.method, a.power)
+        except SystemExit:
+            n_crit = n_pow = None
+        except Exception:
+            n_crit = n_pow = None
+        if n_crit is None or n_pow is None:
+            out["inconclusive_note"] = ("区间跨过阈值，且点估计不高于阈值——**任何样本量都无法把下界推过阈值**。"
+                                        "这不是样本量问题：要么该点确实不可行，要么需要更有效的估计量或改进方案。")
+            out["n_needed_critical"] = None
+            out["n_needed_power"] = None
+            print(json.dumps(out, ensure_ascii=False, indent=2))
+            return 1
         out["inconclusive_note"] = ("区间跨过阈值：既不能称可行也不能称已排除。"
                                     "要下结论请补样本或改述为『证据不足』。")
         out["n_needed_critical"] = n_crit
