@@ -209,9 +209,26 @@ def cmd_emit_tex(path: str, out: str) -> int:
         stale_mark = "  % STALE：不得引用" if e.get("status") == "stale" else ""
         lines.append(f"\\newcommand{{\\{name}}}{{{tex_escape(e.get('display'))}}}{stale_mark}")
         cert = e.get("certificate") or {}
-        for suffix, field in (("Bound", "bound"), ("N", "n"), ("Threshold", "threshold"), ("Gap", "gap")):
+        for suffix, field in (("Bound", "bound"), ("Upper", "upper"), ("N", "n"),
+                              ("Threshold", "threshold"), ("Gap", "gap"),
+                              ("Seed", "seed"), ("Verdict", "verdict"),
+                              ("Alpha", "alpha"), ("Method", "method")):
             if field in cert and cert[field] is not None:
                 lines.append(f"\\newcommand{{\\{name}{suffix}}}{{{tex_escape(cert[field])}}}")
+        # 整段证书宏：正文写 \qOneThresholdCert 即可带出「n=… ，方法 95% 下界 … ≥ 阈值」，
+        # 免得作者只贴点估计而把证书忘在结果目录里（历史上摘要漏下界就是这么来的）。
+        if cert.get("bound") is not None and cert.get("threshold") is not None:
+            _v = {"feasible": "达标", "excluded": "已排除", "inconclusive": "证据不足"}.get(
+                str(cert.get("verdict", "")), "")
+            _parts = []
+            if cert.get("n") is not None:
+                _parts.append(f"n={tex_escape(cert['n'])}")
+            _m = str(cert.get("method", "")) or "单侧"
+            _parts.append(f"{tex_escape(_m)} 下界 {tex_escape(cert['bound'])}")
+            _parts.append(f"阈值 {tex_escape(cert['threshold'])}")
+            if _v:
+                _parts.append(_v)
+            lines.append(f"\\newcommand{{\\{name}Cert}}{{（{'，'.join(_parts)}）}}")
         if e.get("unit") and e["unit"] != "1":
             lines.append(f"\\newcommand{{\\{name}Unit}}{{{tex_escape(e['unit'])}}}")
     os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)

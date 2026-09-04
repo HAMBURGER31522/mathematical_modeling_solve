@@ -9,7 +9,8 @@ Wilson/Clopper-Pearson 均只适用于 iid Bernoulli；加权/相关/序贯场�
   判定（输出 JSON，可直接作 ledger 的 certificate 块）：
     python certify.py --k 39668 --n 40000 --threshold 0.90 --delta 0.005
         [--alpha 0.05] [--m 1] [--method wilson|cp]
-    · pass     = 下界 ≥ threshold（R2 达标，不可豁免）
+    · verdict  = feasible（下界 ≥ threshold）/ excluded（上界 < threshold）/ inconclusive（区间跨阈值）
+    · pass     = verdict == feasible（R2 达标，不可豁免）；inconclusive 会附带所需样本量
     · u        = p̂ − 下界；resolved = (u ≤ delta/3)（R5 已分辨，可降级）
     · --m K    = 同时比较 K 项时的 Bonferroni 校正（alpha/K）
   反解样本量（证书协议是一次封存一次终验，机时按把握度 n 排，不按临界 n 排）：
@@ -117,6 +118,38 @@ def cp_lower(k: int, n: int, alpha: float) -> float:
     return lo
 
 
+def wilson_upper(k: int, n: int, alpha: float) -> float:
+    """单侧 Wilson score 上界（置信水平 1-alpha）。"""
+    if n <= 0:
+        raise ValueError("n 必须为正")
+    z = z_for(1 - alpha)
+    p = k / n
+    denom = 1 + z * z / n
+    center = p + z * z / (2 * n)
+    margin = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n))
+    return min(1.0, (center + margin) / denom)
+
+
+def cp_upper(k: int, n: int, alpha: float) -> float:
+    """单侧 Clopper-Pearson 精确上界：解 P(X <= k | p) = alpha。"""
+    if k >= n:
+        return 1.0
+    if k <= 0:
+        return 1.0 - alpha ** (1.0 / n)
+    lo, hi = 0.0, 1.0
+    for _ in range(200):
+        mid = (lo + hi) / 2
+        if 1.0 - betainc(k + 1, n - k, mid) > alpha:
+            lo = mid
+        else:
+            hi = mid
+    return hi
+
+
+def upper_bound(k: int, n: int, alpha: float, method: str) -> float:
+    return cp_upper(k, n, alpha) if method == "cp" else wilson_upper(k, n, alpha)
+
+
 def lower_bound(k: int, n: int, alpha: float, method: str) -> float:
     return cp_lower(k, n, alpha) if method == "cp" else wilson_lower(k, n, alpha)
 
@@ -219,13 +252,32 @@ def main(argv=None) -> int:
         ap.error("判定模式需要 --k 与 --n")
     p_hat = a.k / a.n
     bound = lower_bound(a.k, a.n, alpha_eff, a.method)
-    passed = bound >= a.threshold
+    ubound = upper_bound(a.k, a.n, alpha_eff, a.method)
+    # 三态证书：把"证据不足"与"已排除"分开，别让前者被默默当成后者。
+    #   feasible     下界 >= 阈值           → 已认证可行
+    #   excluded     上界 <  阈值           → 已认证排除
+    #   inconclusive 区间跨过阈值           → 样本量不够，不得据此下结论
+    if bound >= a.threshold:
+        verdict = "feasible"
+    elif ubound < a.threshold:
+        verdict = "excluded"
+    else:
+        verdict = "inconclusive"
+    passed = verdict == "feasible"
     out = {
-        "family": conf_label, "bound": round(bound, 6), "n": a.n, "k": a.k,
+        "family": conf_label, "bound": round(bound, 6), "upper": round(ubound, 6),
+        "n": a.n, "k": a.k,
         "p_hat": round(p_hat, 6), "threshold": a.threshold,
         "alpha": a.alpha, "m": a.m, "alpha_effective": alpha_eff,
+        "verdict": verdict,
         "pass": passed,
     }
+    if verdict == "inconclusive":
+        n_crit, n_pow = solve_n(p_hat, a.threshold, alpha_eff, a.method, a.power)
+        out["inconclusive_note"] = ("区间跨过阈值：既不能称可行也不能称已排除。"
+                                    "要下结论请补样本或改述为『证据不足』。")
+        out["n_needed_critical"] = n_crit
+        out["n_needed_power"] = n_pow
     if a.delta is not None:
         u = p_hat - bound
         out.update({"delta": a.delta, "u": round(u, 6), "resolved": u <= a.delta / 3})
