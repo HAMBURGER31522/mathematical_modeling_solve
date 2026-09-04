@@ -85,14 +85,23 @@ def main(argv=None) -> int:
                 line = txt[:m.start()].count("\n") + 1
                 blocking.append({"类型": "疑似凭据", "文件": f"{rel}:{line}", "说明": why,
                                  "片段": re.sub(r"['\"][^'\"]{4,}['\"]", "'***'", m.group(0))[:80]})
+        # 绝对路径：只有写在**可执行代码**里才是阻断项。
+        # 结果 JSON／门禁记录里记录产生该结果的完整命令是**好的溯源实践**，
+        # 一刀切会把正确做法判成违规（实测把一份合格交付物误判出 8 个阻断项）。
+        is_code = os.path.splitext(p)[1].lower() in {".py", ".sh", ".ps1", ".bat", ".cfg", ".ini", ".toml"}
         if not a.allow_abs:
             for pat, why in ABS_PATTERNS:
                 hits = list(re.finditer(pat, txt))
                 if hits:
                     line = txt[:hits[0].start()].count("\n") + 1
-                    blocking.append({"类型": "绝对路径", "文件": f"{rel}:{line}", "说明": why,
+                    rec = {"类型": "绝对路径", "文件": f"{rel}:{line}", "说明": why,
                                      "出现次数": len(hits),
-                                     "片段": txt[hits[0].start():hits[0].start() + 60].split("\n")[0]})
+                                     "片段": txt[hits[0].start():hits[0].start() + 60].split("\n")[0]}
+                    if is_code:
+                        blocking.append(rec)
+                    else:
+                        rec["说明"] = why + "（非代码文件：溯源记录可保留，但须确认不是包外依赖）"
+                        warn.append(rec)
 
     # README 引用的文件是否存在（包外依赖的常见形态）
     for p in files:
