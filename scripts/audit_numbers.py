@@ -96,6 +96,44 @@ def macros_defined(numbers_tex):
             re.finditer(r"\\newcommand\{\\([A-Za-z]+)\}\{(.*?)\}\s*(?:%.*)?$", txt, re.M)}
 
 
+INPUT_RE = None  # 延迟编译，见 expand_inputs
+
+
+def expand_inputs(paths, seen=None, depth=0):
+    """把 \\input / \\include 递归展开成实际文件列表。
+
+    分节论文的 main.tex 里几乎只有 \\input，不展开就等于什么都没审——
+    这是分节结构下最容易出现的假阴性（loop2-r1 跑题者实测反馈）。
+    """
+    import re as _re
+    global INPUT_RE
+    if INPUT_RE is None:
+        INPUT_RE = _re.compile(r"(?<!%)" + "\\\\" + r"(?:input|include)\s*\{([^}]+)\}")
+    if seen is None:
+        seen = []
+    if depth > 8:
+        return seen
+    for path in paths:
+        path = os.path.normpath(path)
+        if path in seen or not os.path.exists(path):
+            if path not in seen and not os.path.exists(path):
+                print(f"警告：{path} 不存在，已跳过", file=sys.stderr)
+            continue
+        seen.append(path)
+        try:
+            txt = read_text(path)
+        except Exception:
+            continue
+        base = os.path.dirname(path)
+        children = []
+        for m in INPUT_RE.finditer(strip_comments(txt)):
+            name = m.group(1).strip()
+            cand = name if name.endswith(".tex") else name + ".tex"
+            children.append(os.path.join(base, cand))
+        expand_inputs(children, seen, depth + 1)
+    return seen
+
+
 def strip_comments(tex):
     return re.sub(r"(?<!\\)%.*", "", tex)
 
@@ -195,10 +233,15 @@ def main(argv=None):
     ap.add_argument("--ledger", required=True)
     ap.add_argument("--numbers", default="论文/numbers.tex")
     ap.add_argument("--tex", nargs="+", required=True)
+    ap.add_argument("--no-expand", action="store_true",
+                    help="不递归展开 input/include（默认展开；分节论文必须展开）")
     ap.add_argument("--root", default=".", help="source.file 的相对路径根目录")
     ap.add_argument("--out", default="结果/审计报告.md")
     a = ap.parse_args(argv)
-    return audit(a.ledger, a.numbers, a.tex, a.root, a.out)
+    tex_files = a.tex if a.no_expand else expand_inputs(a.tex)
+    if not a.no_expand and len(tex_files) > len(a.tex):
+        print(f"已递归展开 input/include：{len(a.tex)} -> {len(tex_files)} 个 tex 文件")
+    return audit(a.ledger, a.numbers, tex_files, a.root, a.out)
 
 
 if __name__ == "__main__":
