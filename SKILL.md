@@ -93,7 +93,21 @@ locator 写法（页码/图号/单元格）见 algorithm-redlines.md §locator�
 
 ### P3 实现与计算（G3）
 
-**进生产批之前必须先过退化规模检验（R13），四行结果落盘 `结果/gates/G3-退化检验.md`**：
+**进生产批之前必须先跑 `scripts/degenerate.py`（R13），退出码必须为 0**：
+
+```bash
+python scripts/degenerate.py --fn 求解/core/simulation.py:conducts \n    --threshold <题面阈值> --trials 300 --n-probe <题面某档的个体数> \n    --out 结果/gates/G3-退化检验.json
+```
+
+被测代码只需提供 `conducts(n, threshold, seed) -> bool`。脚本内含**两个互相独立的探测器**，
+任一命中即 FAIL：① `n=1` 单体自导通（几何上不可能时）；② **阈值敏感性**——把阈值从 0 拉到极大，
+结果若毫无变化，说明阈值根本没进入判定、或存在与阈值无关的短路通道。
+第二条不依赖题目特有的物理常识，是通用性最强的一条。
+
+**实测**：对 2026-09-04 那份翻车交付物，两条同时命中（n=1 导通 24.7%、阈值敏感性 0.0），退出码 1。
+而它当时的 92 项测试与 G0-G7 全绿——**统计证书拦不住错的物理，这条 30 秒的检查能**。
+
+四行检查含义（脚本自动落盘）：
 个体数=1 的导通率、个体数=0 的存在性结论、判据阈值→0 与→大的连边数单调性。
 这张表成本近零，却能拦住统计证书拦不住的口径错误——
 **曾有一份 50 页、92 测试全过、G0–G7 全绿的交付物，答案错了近 70 倍，
@@ -234,6 +248,7 @@ references 之间可交叉引用（红线↔规范↔审查互相指），按指
 | ledger.py | 账本结构校验（含唯一权威答案）、依赖哈希冻结、stale 传播、numbers.tex 宏生成 | `--validate` / `--freeze` / `--stale-check --write` / `--emit-tex -o 论文/numbers.tex` |
 | audit_numbers.py | 论文↔账本↔结果文件三向审计 + 未走宏数字清单 | `--ledger … --numbers … --tex 论文/main.tex --out 结果/审计报告.md` |
 | figqa.py | 空图/重复图/分辨率/未引用检查 + contact sheet | `python scripts/figqa.py 图/ --tex 论文/main.tex` |
+| degenerate.py | **退化规模检验（R13）**：n=0／n=1／阈值→0／阈值→大 + 阈值敏感性；两个独立探测器抓口径错误 | `python scripts/degenerate.py --fn 模块:conducts --threshold 1.8 --n-probe 354` |
 | latex_gate.py | 编译日志阻断项/非阻断项分类、页数与摘要页核实 | `python scripts/latex_gate.py 论文/main.log --aux 论文/main.aux` |
 
 `assets/reproduce.py`：**交付包复现入口模板**——P7 要求交付目录内必须有可执行入口（只读复核台账↔宏↔论文一致性 + 最小重算子集），不能只在 README 里写命令。
