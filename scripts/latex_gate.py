@@ -38,6 +38,9 @@ NONBLOCKING_PATTERNS = [
 
 
 def parse_log(path):
+    import os as _os
+    if not _os.path.exists(path):
+        return [], [], None
     with open(path, encoding="utf-8", errors="replace") as f:
         lines = f.read().splitlines()
     blocking, nonblocking = [], []
@@ -56,6 +59,22 @@ def parse_log(path):
     if m:
         pages = int(m.group(1))
     return blocking, nonblocking, pages
+
+
+def pdf_page_count(pdf_path):
+    """直接数 PDF 页数。比解析日志可靠——日志格式随引擎/latexmk 版本变。"""
+    if not pdf_path or not os.path.exists(pdf_path):
+        return None
+    try:
+        import pypdf
+        return len(pypdf.PdfReader(pdf_path).pages)
+    except Exception:
+        pass
+    try:
+        from PyPDF2 import PdfReader
+        return len(PdfReader(pdf_path).pages)
+    except Exception:
+        return None
 
 
 def aux_pages(aux_path, abstract_label=None):
@@ -80,6 +99,42 @@ def load_whitelist(path):
         return [l.strip() for l in f if l.strip().startswith("-")]
 
 
+def bib_missing(tex_path):
+    """参考文献节存在性(M5/mmflow 实测:交付物可以整篇没有参考文献)。
+
+    沿 \\input/\\include 递归收集源文本,查
+    \\bibliography / \\thebibliography / 参考文献 任一出现即算有。
+    """
+    import os as _os
+    seen, texts = set(), []
+    base = _os.path.dirname(_os.path.abspath(tex_path))
+
+    def walk(p):
+        ap = _os.path.abspath(p)
+        if ap in seen or not _os.path.exists(ap):
+            return
+        seen.add(ap)
+        try:
+            t = open(ap, encoding="utf-8", errors="replace").read()
+        except OSError:
+            return
+        texts.append(t)
+        for m in re.finditer(r"\\(?:input|include)\{([^}]+)\}", t):
+            cand = m.group(1)
+            for ext in ("", ".tex"):
+                walk(_os.path.join(base, cand + ext))
+
+    walk(tex_path)
+    blob = "\n".join(texts).replace("\\n", "")
+    # 子串判定,不用正则:thebibliography 在 \begin{thebibliography} 里前面是 {,
+    # 带 \ 前缀的正则永远匹配不上(loopmw 实测假阳性根因)
+    has_bib = ("thebibliography" in blob
+               or "参考文献" in blob
+               or "bibliography{" in blob
+               or "\\bibliography{" in blob)
+    return not has_bib
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="LaTeX 编译日志门禁")
     ap.add_argument("log")
@@ -87,12 +142,66 @@ def main(argv=None):
     ap.add_argument("--abstract-label", default=None)
     ap.add_argument("--whitelist")
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--pdf", default=None,
+                    help="编译出的 PDF。给了就以它为页数权威来源（日志格式不可靠）。")
+    ap.add_argument("--min-pages", type=int, default=40,
+                    help="总页数下限（默认 40）。竞赛规范只约束正文（尽量 20 页以内），"
+                         "附录不限页；总页数上不去＝附录没做，而附录正是拉开差距的地方。"
+                         "高分基线 53 页。")
+    ap.add_argument("--appendix-label", default=None,
+                    help="附录起始处的 \\label 名。给了就据此算正文页数并检查 --max-body-pages。")
+    ap.add_argument("--max-body-pages", type=int, default=20,
+                    help="正文页数上限（默认 20，即竞赛规范的『尽量控制在 20 页以内』）。"
+                         "仅在给了 --appendix-label 时生效。")
+    ap.add_argument("--tex", default=None,
+                    help="主 tex 源路径。给了就做结构检查：参考文献节存在性"
+                         "（mmflow 实测：整篇交付可以零参考文献）。")
     a = ap.parse_args(argv)
 
     blocking, nonblocking, pages = parse_log(a.log)
+    pages_src = "log"
+    n_pdf = pdf_page_count(a.pdf)
+    if n_pdf is not None:
+        if pages is not None and pages != n_pdf:
+            blocking.append({"line": 0, "kind": "volume",
+                             "text": f"日志说 {pages} 页、PDF 实为 {n_pdf} 页：日志与产物不符，"
+                                     "多半是拿旧日志配新 PDF（或反之），门禁失去意义"})
+        pages, pages_src = n_pdf, "pdf"
     aux = aux_pages(a.aux, a.abstract_label)
+    if a.tex:
+        if bib_missing(a.tex):
+            blocking.append({"line": 0, "kind": "no-bib",
+                             "text": "全文无参考文献节——赛制硬要求"
+                                     "（mmflow 实测：整篇交付零参考文献）"})
     wl = load_whitelist(a.whitelist)
-    res = {"log": a.log, "pages": pages, "n_blocking": len(blocking), "n_nonblocking": len(nonblocking),
+
+    # ---- 体量地板：写成散文的「要丰富」无效，只有退出码算数 ----
+    volume = []
+    if pages is None:
+        volume.append("页数无法判定：日志里没有 \"Output written on … (N pages)\" 行，"
+                      "也没给 --pdf。门禁核不到要核的量就不能算通过——"
+                      "请补 --pdf 论文/main.pdf")
+    elif pages < a.min_pages:
+        volume.append(f"总页数 {pages} < 下限 {a.min_pages}：附录没做够。"
+                      f"竞赛规范不限附录页数，补充图表/源程序/附件说明/推导细节都该进去。")
+    body_pages = None
+    if a.appendix_label:
+        lab = aux.get("labels", {}).get(a.appendix_label)
+        if lab:
+            try:
+                body_pages = int(str(lab).strip())
+            except ValueError:
+                body_pages = None
+        if body_pages is None:
+            volume.append(f"给了 --appendix-label {a.appendix_label} 但 .aux 里取不到其页码，"
+                          "正文页数未核实")
+        elif body_pages - 1 > a.max_body_pages:
+            volume.append(f"正文 {body_pages - 1} 页 > 上限 {a.max_body_pages}："
+                          "超出竞赛格式规范，把明细表/长推导移进附录")
+    blocking = blocking + [{"line": 0, "kind": "volume", "text": m} for m in volume]
+    res = {"log": a.log, "pages": pages, "body_pages": body_pages,
+           "min_pages": a.min_pages, "max_body_pages": a.max_body_pages,
+           "n_blocking": len(blocking), "n_nonblocking": len(nonblocking),
            "blocking": blocking, "nonblocking": nonblocking[:80],
            "whitelist_entries": len(wl), "aux": aux,
            "verdict": "FAIL" if blocking else "PASS"}
