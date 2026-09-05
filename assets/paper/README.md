@@ -9,7 +9,7 @@
 
 ## 篇幅预算表：50 页是这么堆出来的，不是注水
 
-**四问全做却正文低于 25 页，基本可判为没写透。** 对标基线 53 页，各章的合理体量：
+**四问全做且 PDF 总页数低于 40 页，基本可判为没写透。** 对标基线 53 页，各章的合理体量：
 
 | 章节 | 页数 | 说明 |
 |---|---|---|
@@ -39,11 +39,14 @@
 ## 用法
 
 1. 拷贝整个目录到 `论文/`，按题目改 `main.tex` 的标题与 `\input` 清单（问数不是四问就删/加）。
-2. 先跑通台账：`python scripts/ledger.py --emit-tex 结果/results_ledger.json -o 论文/numbers.tex`。
-3. 再写正文。**正文里每个数字都引用宏**，不手抄。
-4. 编译：`latexmk -xelatex -halt-on-error -interaction=nonstopmode main.tex`，**检查退出码**。
-5. 过门禁：`python scripts/latex_gate.py 论文/main.log --aux 论文/main.aux`。
-6. **交稿前查页数**：不足 25 页回到篇幅预算表，看缺哪一块。
+2. 先建立运行时合同：`model_identity.json` → 每问 `qN.json`（含 `checks`）→ `aggregate.json`，逐问聚合校验后才写正文。
+3. 再跑通台账：`python scripts/ledger.py --emit-tex 结果/results_ledger.json -o 论文/numbers.tex`。宏携带证书元数据（样本量、seed、下界、状态、是否已分辨）。
+4. 再写正文。**正文里每个数字都引用宏**，不手抄；结果按“现象—原因—意义”叙事。
+5. 编译：`latexmk -xelatex -halt-on-error -interaction=nonstopmode main.tex`，**检查退出码**。
+6. 过门禁：`python scripts/latex_gate.py 论文/main.log --pdf 论文/main.pdf --aux 论文/main.aux`。
+7. **交稿前查页数**：总页数不足 40 页回到篇幅预算表，看缺哪一块。
+
+每张图在生成前先在图表清单写“这张图要让评委看见什么”、支持的结论、ledger `data_key` 和正文落点。模型评价按“缺陷—影响—改进”组织，缺陷和影响都必须有数字或证据路径。
 
 ## 编译修错循环（照这个顺序修，别乱试）
 

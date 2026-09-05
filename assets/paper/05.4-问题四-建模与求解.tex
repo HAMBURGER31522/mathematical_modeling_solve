@@ -7,6 +7,7 @@
 %   3. 结果表 + 结果图（图必须进正文，未引用即 G5 FAIL）
 %   4. 统计证书：置信下界 / 收敛判据 / 双路互证，至少一样
 %   5. 结果讨论：数字 + 比较 + 机理，且显式引用本节的表与图
+%   6. 结果叙事合同：现象—原因—意义；每个数字能回指 qN.json、aggregate.json 与 ledger。
 %
 % 【搜索类问题的额外红线】网格步长必须由可行前沿的陡度决定：
 %   前沿附近退化为单位步长，或把由别问解出的阈值点强制塞进候选集。
@@ -71,7 +72,15 @@
 % 历史教训：某轮交付物生成了 7 张图，正文只引用 1 张，figures 维直接归零。
 \begin{figure}[htbp]
   \centering
-  \includegraphics[width=0.85\linewidth]{fig_qfour_main.pdf}
+  \IfFileExists{../图/fig_qfour_main.pdf}{%
+    \includegraphics[width=0.85\linewidth]{fig_qfour_main.pdf}%
+  }{%
+    \IfFileExists{fig_qfour_main.pdf}{%
+      \includegraphics[width=0.85\linewidth]{fig_qfour_main.pdf}%
+    }{%
+      \fbox{\parbox{0.82\linewidth}{\centering 图位占位：生成并接入本问证据图后再交稿}}%
+    }%
+  }
   \caption{……}
   \label{fig:qfour-main}
 \end{figure}

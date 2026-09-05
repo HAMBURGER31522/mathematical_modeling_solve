@@ -21,6 +21,8 @@ import sys
 
 REQUIRED = ["value", "unit", "display", "role", "source", "status"]
 ROLES = {"authoritative", "cross_check", "intermediate"}
+CERT_METADATA = ("bound", "threshold", "n", "seed", "verdict",
+                 "resolved", "delta", "u")
 DIGITS = {"0": "Zero", "1": "One", "2": "Two", "3": "Three", "4": "Four",
           "5": "Five", "6": "Six", "7": "Seven", "8": "Eight", "9": "Nine"}
 
@@ -115,6 +117,11 @@ def validate(led: dict, warnings: list = None) -> list:
             problems.append(f"{where} 权威答案没有 certificate 块：R2 未判定（M5：authoritative 缺证书为阻断）。"
                             "若该结论含「满足/可行/达标/最优」主张，按 R2 判 fail；纯描述性数字才可无证书")
         if cert is not None:
+            if role == "authoritative":
+                for field in CERT_METADATA:
+                    if field not in cert or cert[field] is None or cert[field] == "":
+                        problems.append(f"{where} certificate.{field} 为空：authoritative 证书元数据不完整"
+                                        "（必须可由宏回读 n/seed/下界/阈值/状态/分辨力）")
             if "pass" not in cert:
                 problems.append(f"{where} certificate 缺 pass 字段")
             elif cert.get("pass") is not True and role == "authoritative":
@@ -215,10 +222,14 @@ def cmd_emit_tex(path: str, out: str) -> int:
         used[name] = key
         stale_mark = "  % STALE：不得引用" if e.get("status") == "stale" else ""
         lines.append(f"\\newcommand{{\\{name}}}{{{tex_escape(e.get('display'))}}}{stale_mark}")
+        if e.get("status") is not None:
+            lines.append(f"\\newcommand{{\\{name}Status}}{{{tex_escape(e['status'])}}}")
         cert = e.get("certificate") or {}
         for suffix, field in (("Bound", "bound"), ("Upper", "upper"), ("N", "n"),
                               ("Threshold", "threshold"), ("Gap", "gap"),
                               ("Seed", "seed"), ("Verdict", "verdict"),
+                              ("Resolved", "resolved"), ("Delta", "delta"),
+                              ("U", "u"), ("Pass", "pass"),
                               ("Alpha", "alpha"), ("Method", "method")):
             if field in cert and cert[field] is not None:
                 lines.append(f"\\newcommand{{\\{name}{suffix}}}{{{tex_escape(cert[field])}}}")
@@ -230,11 +241,17 @@ def cmd_emit_tex(path: str, out: str) -> int:
             _parts = []
             if cert.get("n") is not None:
                 _parts.append(f"n={tex_escape(cert['n'])}")
+            if cert.get("seed") is not None:
+                _parts.append(f"seed={tex_escape(cert['seed'])}")
             _m = str(cert.get("method", "")) or "单侧"
             _parts.append(f"{tex_escape(_m)} 下界 {tex_escape(cert['bound'])}")
             _parts.append(f"阈值 {tex_escape(cert['threshold'])}")
             if _v:
                 _parts.append(_v)
+            if cert.get("resolved") is not None:
+                _parts.append("已分辨" if cert["resolved"] is True else "未分辨")
+            if cert.get("u") is not None:
+                _parts.append(f"u={tex_escape(cert['u'])}")
             lines.append(f"\\newcommand{{\\{name}Cert}}{{（{'，'.join(_parts)}）}}")
         if e.get("unit") and e["unit"] != "1":
             lines.append(f"\\newcommand{{\\{name}Unit}}{{{tex_escape(e['unit'])}}}")

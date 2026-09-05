@@ -8,6 +8,25 @@
 - 骨架与分节清单见 `assets/paper/`（该目录 README 含编译修错速查表）。
 - 有官方模板时：把官方 class 换进 `main.tex`，`\input` 结构照旧——分节是工程形态，与模板归属无关。
 
+## 合同先行与运行时审计链（P6 硬项）
+
+写正文前先建立并冻结运行时合同，固定产物序列为：
+
+`结果/运行时/model_identity.json` → `结果/运行时/qN.json` → `结果/运行时/aggregate.json` → `结果/results_ledger.json` → `论文/numbers.tex` → `论文/*.tex`。
+
+- `model_identity.json` 固定题目、版本、口径、共享内核 commit 和运行环境，避免不同问悄悄使用不同判据。
+- 每个**逐问结果 JSON** `qN.json` 必须有 `checks` 字段，至少列出输入、判定、证书、seed、source、命令和退出码；`aggregate.json` 必须逐问汇总并校验这些字段。
+- 聚合校验完成后才允许写论文；缺少任一文件、只有作者自评或聚合没有逐问结果 = G6 FAIL。
+- `ledger.py --emit-tex` 发射的结果宏携带证书元数据：`N`、`Seed`、`Bound`、`Verdict`、`Resolved`、`Delta`、`U` 和条目 `Status`；整段 `Cert` 宏至少显示样本量、seed、下界、阈值、状态和是否已分辨。正文不手抄这些字段。
+
+### 结果叙事合同
+
+每问的结果段按“现象—原因—意义”组织：先报可回读的现象和数字，再解释机制/结构原因，最后说明它对答案取舍的意义。模型评价按“缺陷—影响—改进”组织：缺陷必须有实测证据，影响要传导到结论或适用域，改进要写明替换哪个环节和预期改善指标。空泛的“效果显著”“具有推广价值”不满足合同。
+
+### 出图前合同
+
+出图前在 `图/图表清单.md` 先写“这张图要让评委看见什么”、它支持的 ledger `data_key`、证据链环节和正文落点，再选择图型。目的、数据来源或正文落点缺一，图不得进入成稿。
+
 ## 结构模板（中文赛事通用；美赛等按官方模板对应调整）
 
 1. 摘要：逐问一句"方法 + 关键数值结论"，末句总括模型特色。摘要是评委唯一必读页，数字必须与正文一致且 ⊆ ledger 证书达标条目。
@@ -28,9 +47,9 @@
 - 赛制有硬性上限时以赛制的口径为准，并在 `结果/合规摘录.md` 中原文摘录该条款。
 - 摘要独占一页的要求用 `latex_gate.py --abstract-label` 从 `.aux` 程序化核实，不靠目测。
 
-## 篇幅三层口径：正文 ≤20 页、附录不限、总页数不足 25 页说明附录没做
+## 篇幅三层口径：正文 ≤20 页、附录不限、总页数不足 40 页说明附录没做
 
-同题的人工基线交付物是 37 页。**不足 25 页不要交稿**——差的不是文采，是这些没写出来：
+同题的人工基线交付物是 53 页。**总页数不足 40 页不要交稿**——差的不是文采，是这些没写出来：
 
 | 通常缺的部分 | 补法 |
 |---|---|
@@ -53,7 +72,7 @@
 
 ## 数字回填
 
-- `python scripts/ledger.py --emit-tex 结果/results_ledger.json -o 论文/numbers.tex` 生成宏（宏名由键名派生，含 Bound/N/Threshold/Gap/Unit 派生宏），正文关键数值**只引用宏**。无官方模板时用分节模板包 `assets/paper/`（主控 `main.tex` + 13 个分节 tex，预留 numbers.tex 注入位与附录分层；有官方模板时只沿用其分节装配结构，不得覆盖官方 class）。
+- `python scripts/ledger.py --emit-tex 结果/results_ledger.json -o 论文/numbers.tex` 生成宏（宏名由键名派生，含 Bound/N/Threshold/Gap/Seed/Verdict/Resolved/Delta/U/Status 派生宏），正文关键数值**只引用宏**。无官方模板时用分节模板包 `assets/paper/`（主控 `main.tex` + 13 个分节 tex，预留 numbers.tex 注入位与附录分层；有官方模板时只沿用其分节装配结构，不得覆盖官方 class）。
 - 宏注入失败时的人工核对仅为临时措施：审计报告必须逐条给出论文页码 + ledger 键，禁止凭记忆手抄。
 - 结果章节出现的裸数字（非年份/章节号/引用号）都应可追溯到 ledger；G6 审计逐条比对。
 
@@ -75,7 +94,7 @@
 
 1. **模板契约优先**：有官方模板/指定编译链时严格照用（class、引擎、bib 工具、页数规则、命名），禁止擅自替换引擎或加宏包（如给英文赛事模板加 ctex）。无官方模板且中文写作才默认 xelatex + ctex。
 2. 优先 `latexmk -xelatex -halt-on-error -interaction=nonstopmode` 并**检查退出码**；无 latexmk 则编译 ×2 保证交叉引用收敛；有 bib：xelatex → biber/bibtex → xelatex ×2，不得只跑 ×2。
-3. **门禁分类交给脚本**：`python scripts/latex_gate.py 论文/main.log --aux 论文/main.aux [--whitelist 结果/编译白名单.md]`。阻断项（清零才过 G7，以脚本实现为准）：真实错误 `^!`、LaTeX Error、未定义命令、未定义引用、未定义引文、未定义汇总行、缺文件、缺字形、Float too large、Overfull。缺字体换系统可用字体并写回退链，不得静默降级。空图框在 log 里无对应字符串，由 G5 的 figqa 与 PDF 目检负责。
+3. **门禁分类交给脚本**：`python scripts/latex_gate.py 论文/main.log --pdf 论文/main.pdf --aux 论文/main.aux --tex 论文/main.tex --min-pages 40 --appendix-label sec:appendix --max-body-pages 20 [--whitelist 结果/编译白名单.md]`。阻断项（清零才过 G7，以脚本实现为准）：真实错误 `^!`、LaTeX Error、未定义命令、未定义引用、未定义引文、未定义汇总行、缺文件、缺字形、Float too large、Overfull。缺字体换系统可用字体并写回退链，不得静默降级。空图框在 log 里无对应字符串，由 G5 的 figqa 与 PDF 目检负责。
 4. **Underfull 政策**：仅处理 badness 超阈值且 PDF 目检可见的条目；残余 warning 记 `结果/编译白名单.md` 及理由，复检时不得新增。
 5. 常用修法：长公式断行、表格 tabularx、图宽 0.9\linewidth、长 URL 断字。
 6. 摘要页数验证：赛制要求一页时 `latex_gate.py --abstract-label` 从 .aux 程序化核实，不靠目测。

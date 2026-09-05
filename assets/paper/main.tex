@@ -10,6 +10,10 @@
 %
 % 【铁律】有官方模板 / 指定 class 时以官方模板为准，本文件只贡献「分节装配」
 %   这一结构：把官方 class 换进 \documentclass，input 顺序照抄下方即可。
+% 【合同先行】正文前先冻结：
+%   结果/运行时/model_identity.json -> 每问 qN.json（必须有 checks 字段）
+%   -> aggregate.json -> results_ledger.json -> numbers.tex -> 本组分节 tex。
+%   aggregate.json 的逐问校验与官方脚本命令/退出码必须随 Gate 台账保存。
 % ============================================================================
 \documentclass[12pt,a4paper]{ctexart}
 
@@ -38,6 +42,8 @@
 %      驼峰（qOneThreshold / qTwoRateLow），发射器负责转换。
 %   3. 下面用 IfFileExists 保护，但故意让缺失可见：没有台账时正文会打出
 %      [NUMBERS-MISSING]，而不是静默编译过去骗自己。
+%   4. 宏还应包含证书的 N/Seed/Bound/Verdict/Resolved/Delta/U/Status；
+%      论文只引用宏，不手抄证书字段。
 % ---------------------------------------------------------------------------
 \IfFileExists{numbers.tex}{%
   \input{numbers.tex}%

@@ -17,6 +17,7 @@
 退出码：0 无 FAIL；1 有 FAIL。
 """
 import argparse
+import glob
 import hashlib
 import json
 import os
@@ -69,6 +70,7 @@ def _expand_inputs(paths, seen=None, depth=0):
 
 
 def referenced_figures(tex_paths):
+    tex_paths = expand_tex_paths(tex_paths)
     used = set()
     for p in _expand_inputs(list(tex_paths)):
         with open(p, encoding="utf-8", errors="replace") as f:
@@ -77,6 +79,25 @@ def referenced_figures(tex_paths):
         for m in re.finditer(r"\\includegraphics\s*(?:\[[^\]]*\])?\s*\{([^}]+)\}", txt):
             used.add(os.path.basename(m.group(1).strip()).lower())
     return used
+
+
+def expand_tex_paths(paths):
+    """Expand wildcard and directory arguments on every shell, including PowerShell."""
+    expanded = []
+    for raw in paths:
+        if os.path.isdir(raw):
+            matches = glob.glob(os.path.join(raw, "*.tex"))
+        else:
+            matches = glob.glob(raw)
+        expanded.extend(matches or [raw])
+    seen = set()
+    result = []
+    for path in expanded:
+        path = os.path.normpath(path)
+        if path not in seen:
+            seen.add(path)
+            result.append(path)
+    return result
 
 
 def raster_stats(path):
@@ -130,7 +151,13 @@ def main(argv=None):
     ap.add_argument("--out", default="结果/figqa.json")
     ap.add_argument("--contact", default="图/_contact.png")
     ap.add_argument("--draft", action="store_true",
-                    help="骨架阶段：把图未被正文引用降级为 WARN；成稿与 G5 门禁不得加此开关")
+                    help="骨架阶段：把图未被正文引用与体量地板降级为 WARN；成稿与 G5 门禁不得加此开关")
+    ap.add_argument("--min-figures", type=int, default=12,
+                    help="图总数下限（默认 12）。低于此数即 FAIL——"
+                         "高分基线是 35 张，只画「每问一张」必然在图表维拿 0 分")
+    ap.add_argument("--min-body-figures", type=int, default=8,
+                    help="正文（\\includegraphics 实际引用）图数下限（默认 8）。"
+                         "余下的进补充图表附录，但正文本身必须撑得起论证")
     a = ap.parse_args(argv)
 
     used = referenced_figures(a.tex) if a.tex else set()
@@ -181,17 +208,43 @@ def main(argv=None):
         results.append(rec)
 
     top_warn, top_fail = [], []
+    available = set()
+    for p in files:
+        name = os.path.basename(p).lower()
+        available.add(name)
+        available.add(os.path.splitext(name)[0])
+    missing_refs = sorted(u for u in used if u not in available)
+    if a.tex and missing_refs:
+        top_fail.append("正文引用但图文件不存在：" + ", ".join(missing_refs))
+        n_fail += 1
     if a.tex and not used:
         m = "正文一张图都没引用（\\includegraphics 为 0）"
         if a.draft:
             top_warn.append(m + "：骨架阶段正常，成稿阶段即 G5 fail"); n_warn += 1
         else:
             top_fail.append(m + "：成稿阶段 G5 fail"); n_fail += 1
+    if len(files) < a.min_figures:
+        m = (f"图总数 {len(files)} < 下限 {a.min_figures}：图表维会被直接判 0 分。"
+             "每问 ≥2 张正文图（现象/结果各一）+ 检验章 ≥2 张（收敛、灵敏度）"
+             "+ 补充图表附录 ≥4 张，是够到高分档的最低配置。")
+        if a.draft:
+            top_warn.append(m + "（骨架阶段降级）"); n_warn += 1
+        else:
+            top_fail.append(m); n_fail += 1
+    if a.tex and len(used) < a.min_body_figures:
+        m = (f"正文实际引用 {len(used)} 张 < 下限 {a.min_body_figures}："
+             "把图堆进附录不算数，评委翻的是正文。")
+        if a.draft:
+            top_warn.append(m + "（骨架阶段降级）"); n_warn += 1
+        else:
+            top_fail.append(m); n_fail += 1
     if a.tex and used and not a.draft and len(used) * 2 < len(files):
         top_fail.append(f"正文只引用了 {len(used)} 张，图目录里 {len(files)} 个文件：过半的图没进论文，检查是否漏接关键结果图")
         n_fail += 1
     contact_note = contact_sheet([p for p in files if os.path.splitext(p)[1].lower() in RASTER], a.contact)
-    report = {"figdir": a.figdir, "n_figures": len(files), "n_fail": n_fail, "n_warn": n_warn,
+    report = {"figdir": a.figdir, "n_figures": len(files), "n_body_figures": len(used),
+              "min_figures": a.min_figures, "min_body_figures": a.min_body_figures,
+              "n_fail": n_fail, "n_warn": n_warn,
               "top_fail": top_fail, "top_warn": top_warn, "skipped_files": skipped,
               "contact_sheet": contact_note,
               "manual_still_required": "逐张目检（重叠/出界/误差带/截断轴/图注自足/缩放比）仍须写入 结果/图面质检.md",
@@ -203,6 +256,8 @@ def main(argv=None):
     print(f"图 {len(files)} 张：FAIL {n_fail}，WARN {n_warn} → {a.out}"
           + (f"（跳过本脚本生成物 {len(skipped)} 个：{', '.join(skipped)}）" if skipped else ""))
     print(contact_note)
+    for m in top_fail:
+        print(f"  FAIL 全局: {m}")
     for m in top_warn:
         print(f"  WARN 全局: {m}")
     for rec in results:
