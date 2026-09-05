@@ -112,8 +112,8 @@ def validate(led: dict, warnings: list = None) -> list:
             seen_authoritative[q] = key
         cert = e.get("certificate")
         if cert is None and role == "authoritative":
-            warnings.append(f"{where} 权威答案没有 certificate 块：R2 未判定。若该结论含"
-                            "「满足/可行/达标/最优」主张，按 R2 判 fail；纯描述性数字才可无证书")
+            problems.append(f"{where} 权威答案没有 certificate 块：R2 未判定（M5：authoritative 缺证书为阻断）。"
+                            "若该结论含「满足/可行/达标/最优」主张，按 R2 判 fail；纯描述性数字才可无证书")
         if cert is not None:
             if "pass" not in cert:
                 problems.append(f"{where} certificate 缺 pass 字段")
