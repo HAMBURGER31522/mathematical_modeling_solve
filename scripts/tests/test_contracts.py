@@ -9,8 +9,8 @@ SKILL.md 里写着「官方脚本不可替代」——但一份独立 CR 指出�
 **在契约测试通过之前，"官方、不可替代"是虚假确定性。**
 
 跑法：
-    python -m pytest skill/scripts/tests/test_contracts.py -q
-    （无 pytest 时：python skill/scripts/tests/test_contracts.py）
+    python -m pytest scripts/tests/test_contracts.py -q
+    （无 pytest 时：python scripts/tests/test_contracts.py）
 """
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIPTS = os.path.dirname(HERE)
 PY = sys.executable
 ENV = dict(os.environ, PYTHONDONTWRITEBYTECODE="1", PYTHONIOENCODING="utf-8")
-ROOT = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
+ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 
 
 def read_repo(relpath):
@@ -398,7 +398,7 @@ def test_eva_gate_accepts_numeric_na_reason_and_checks_its_artifact():
 
 def _make_reproduce_package(tmp, with_runtime=True):
     import shutil
-    shutil.copyfile(os.path.join(ROOT, "skill", "assets", "reproduce.py"),
+    shutil.copyfile(os.path.join(ROOT, "assets", "reproduce.py"),
                     os.path.join(tmp, "reproduce.py"))
     for rel in ("论文/main.pdf", "论文/main.tex", "论文/numbers.tex",
                 "结果/results_ledger.json"):
@@ -448,7 +448,7 @@ def test_reproduce_accepts_complete_runtime_in_explicit_check_only_mode():
 
 # ---------------------------------------------------------------- v3.2 E/V/A 证据链契约
 def test_skill_requires_v32_evidence_battery():
-    text = read_repo("skill/SKILL.md")
+    text = read_repo("SKILL.md")
     required = (
         "E/V/A 证据包",
         "三路独立估计路径",
@@ -472,7 +472,7 @@ def test_skill_requires_v32_evidence_battery():
 
 
 def test_depth_review_requires_numeric_eva_artifact_matrix():
-    text = read_repo("skill/references/depth-review.md")
+    text = read_repo("references/depth-review.md")
     required = (
         "E/V/A 证据链硬检查",
         "artifact",
@@ -492,16 +492,16 @@ def test_depth_review_requires_numeric_eva_artifact_matrix():
 
 
 def test_paper_and_runtime_keep_fragments_are_explicit():
-    skill = read_repo("skill/SKILL.md")
-    paper = read_repo("skill/references/paper-latex.md")
+    skill = read_repo("SKILL.md")
+    paper = read_repo("references/paper-latex.md")
     templates = "\n".join(
         read_repo(path)
         for path in (
-            "skill/assets/paper/main.tex",
-            "skill/assets/paper/00-摘要.tex",
-            "skill/assets/paper/05-模型的建立与求解.tex",
-            "skill/assets/paper/06-模型检验.tex",
-            "skill/assets/paper/07-模型评价.tex",
+            "assets/paper/main.tex",
+            "assets/paper/00-摘要.tex",
+            "assets/paper/05-模型的建立与求解.tex",
+            "assets/paper/06-模型检验.tex",
+            "assets/paper/07-模型评价.tex",
         )
     )
     required = (
@@ -518,19 +518,19 @@ def test_paper_and_runtime_keep_fragments_are_explicit():
     )
     missing = [marker for marker in required if marker not in skill + paper + templates]
     assert not missing, f"keep_fragments 合同缺失: {missing}"
-    assert os.path.isfile(os.path.join(ROOT, "skill", "assets", "reproduce.py"))
+    assert os.path.isfile(os.path.join(ROOT, "assets", "reproduce.py"))
 
 
 def test_page_gate_appendix_label_matches_reusable_template():
-    skill = read_repo("skill/SKILL.md")
-    paper = read_repo("skill/references/paper-latex.md")
-    appendix = read_repo("skill/assets/paper/11-附录.tex")
+    skill = read_repo("SKILL.md")
+    paper = read_repo("references/paper-latex.md")
+    appendix = read_repo("assets/paper/11-附录.tex")
     assert "--appendix-label sec:appendix" in skill + paper
     assert "\\label{sec:appendix}" in appendix
 
 
 def test_computation_standards_cover_six_pending_lessons():
-    text = read_repo("skill/references/computation-standards.md")
+    text = read_repo("references/computation-standards.md")
     required = (
         "内部-内部最近点对",
         "max(min₂−max₁, min₁−max₂)",

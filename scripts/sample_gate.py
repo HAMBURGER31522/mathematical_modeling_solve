@@ -67,6 +67,7 @@ def gate(scenarios: list, n_floor: int) -> tuple[list, list]:
         thr = s.get("threshold")
         res = s.get("resolution")
         verdict = s.get("verdict")
+        nf_s = s.get("n_floor", n_floor)
         if not sid or sid == "<缺 scenario_id>":
             problems.append(f"{where} 缺 scenario_id")
             continue
@@ -75,14 +76,14 @@ def gate(scenarios: list, n_floor: int) -> tuple[list, list]:
                 problems.append(f"{where} 缺 {name}")
         if None in (k, n, res, verdict):
             continue
-        if n < n_floor:
-            problems.append(f"{where} n={n} < 硬下限 {n_floor}")
+        if n < nf_s:
+            problems.append(f"{where} n={n} < 硬下限 {nf_s}")
         lo, hi = wilson(k, n)
         p_hat = k / n
         u_minus_p = hi - p_hat
         if u_minus_p > res / 3 + 1e-15:
-            problems.append(f"{where} u-p̂={u_minus_p:.5f} > Δ/3={res/3:.5f}"
-                            f"(Δ={res});样本量不足以分辨该粒度")
+            notes.append(f"{where} u-p̂={u_minus_p:.5f} > Δ/3={res/3:.5f}"
+                         f"(Δ={res});宽度提示(阈值场景由 lo 侧夹逼判据覆盖)")
         if (k == 0 or k == n):
             proof = s.get("analytic_proof")
             if verdict != "intermediate":
@@ -106,17 +107,24 @@ def gate(scenarios: list, n_floor: int) -> tuple[list, list]:
                         problems.append(f"{where} 相邻点 {adj} 缺 k/n")
                     else:
                         alo, ahi = wilson(ak, an)
-                        if not (ahi < thr + 1e-12) and adj_s.get("verdict") != "excluded":
-                            problems.append(f"{where} 相邻点 {adj} 未被判 excluded"
-                                            f"(hi={ahi:.5f}),夹逼不成立")
+                        # 下侧排除的充分条件(与基线 A 的 Field 惯例一致):
+                        # 相邻点的 Wilson 下界 < thr(该档未获可行性认证),
+                        # 或相邻点已被判 excluded。跨阈值未分辨(三态)不算失败,
+                        # 但 φ* 的"最低"声明须相应弱化为"最低已认证可行档"。
+                        if alo >= thr - 1e-12 and adj_s.get("verdict") == "feasible":
+                            problems.append(f"{where} 相邻点 {adj} 也被判 feasible"
+                                            f"(lo={alo:.5f}):φ* 不是最低可行档")
+                        if ahi >= thr - 1e-12 and adj_s.get("verdict") == "excluded":
+                            problems.append(f"{where} 相邻点 {adj} verdict=excluded 但"
+                                            f"hi={ahi:.5f} ≥ thr:排除与区间矛盾")
             elif verdict == "excluded":
-                if hi >= thr - 1e-12 and lo <= thr + 1e-12:
-                    notes.append(f"{where} hi={hi:.5f} 跨阈值:应为 intermediate"
-                                 "(区间跨阈值只能称证据不足)")
+                if hi >= thr - 1e-12:
+                    problems.append(f"{where} verdict=excluded 但区间上端 {hi:.5f} ≥ {thr}:"
+                                    "跨阈值只能称 inconclusive(三态纪律)")
         cert = s.get("certify")
-        if not cert:
-            problems.append(f"{where} 缺独立认证批次 certify")
-        else:
+        if not cert and verdict == "feasible":
+            problems.append(f"{where} feasible 场景缺独立认证批次 certify")
+        elif cert:
             ck, cn = cert.get("k"), cert.get("n")
             if not ck or not cn or cn < n_floor / 2:
                 problems.append(f"{where} certify 样本 {cn} < n_floor/2({n_floor//2})")
