@@ -15,11 +15,13 @@ SKILL.md 里写着「官方脚本不可替代」——但一份独立 CR 指出�
 from __future__ import annotations
 
 import io
+import importlib
 import json
 import os
 import subprocess
 import sys
 import tempfile
+from pathlib import Path
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIPTS = os.path.dirname(HERE)
@@ -43,6 +45,148 @@ def as_json(text):
     i, j = text.find("{"), text.rfind("}")
     assert i >= 0 and j > i, f"输出里没有 JSON：{text[:200]}"
     return json.loads(text[i:j + 1])
+
+
+def test_openconf_reads_all_opening_configuration_keys():
+    code, out, err = run("openconf.py")
+    assert code == 0, err
+    config = as_json(out)
+    assert set(config) == {
+        "赛事", "正文页数上限", "总页数下限", "图总数下限", "正文引用图下限",
+        "摘要页数", "论文模板", "目标图样例目录", "总时限", "主计算机时上限", "本机核数",
+    }
+    assert config["总页数下限"] == 40
+
+
+def test_gate_defaults_come_from_opening_configuration():
+    if SCRIPTS not in sys.path:
+        sys.path.insert(0, SCRIPTS)
+    openconf = importlib.import_module("openconf")
+    latex_gate = importlib.import_module("latex_gate")
+    figqa = importlib.import_module("figqa")
+    original_path = openconf.CONFIG_PATH
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            config = Path(tmp, "开题.md")
+            config.write_text(
+                "总页数下限: 60\n正文页数上限: 10\n图总数下限: 0\n正文引用图下限: 0\n",
+                encoding="utf-8",
+            )
+            openconf.CONFIG_PATH = config
+            log = _fake_log(tmp, pages=53)
+            assert latex_gate.main([log]) == 1
+            assert latex_gate.main([log, "--min-pages", "50"]) == 0
+            figdir = os.path.join(tmp, "图")
+            os.makedirs(figdir)
+            assert figqa.main([
+                figdir,
+                "--out", os.path.join(tmp, "figqa.json"),
+                "--contact", os.path.join(tmp, "contact.png"),
+            ]) == 0
+
+            config.write_text("正文页数上限: 10\n", encoding="utf-8")
+            try:
+                latex_gate.main([log])
+            except SystemExit as exc:
+                assert str(exc) == "请在 开题.md 填写 总页数下限"
+            else:
+                raise AssertionError("缺少配置必须中止，不能回退到旧默认值")
+    finally:
+        openconf.CONFIG_PATH = original_path
+
+
+def test_gate_help_omits_legacy_numeric_defaults():
+    for script, legacy_default in (
+        ("latex_gate.py", ("默认 40", "默认 20")),
+        ("figqa.py", ("默认 12", "默认 8")),
+    ):
+        code, out, err = run(script, "--help")
+        assert code == 0, err
+        text = out + err
+        assert not any(value in text for value in legacy_default), text
+
+
+TASK_CARD_FIELDS = (
+    "objective", "input_data", "decision_variables", "constraints", "expected_outputs",
+    "dependencies", "risks", "validation_requirements", "data_evidence",
+)
+
+
+def _task_cards_text(missing=None):
+    lines = ["## 问题 1"]
+    for field in TASK_CARD_FIELDS:
+        if field != missing:
+            lines.append(f"- {field}: 已填写")
+    return "\n".join(lines) + "\n"
+
+
+def test_task_cards_requires_all_fields_and_predates_ledger():
+    with tempfile.TemporaryDirectory() as tmp:
+        cards = os.path.join(tmp, "拆问卡.md")
+        ledger = os.path.join(tmp, "results_ledger.json")
+        io.open(cards, "w", encoding="utf-8").write(_task_cards_text())
+        os.utime(cards, (1_600_000_000, 1_600_000_000))
+        io.open(ledger, "w", encoding="utf-8").write("{}")
+        code, out, err = run("task_cards.py", "--cards", cards, "--ledger", ledger)
+        assert code == 0, out + err
+
+        io.open(cards, "w", encoding="utf-8").write(
+            _task_cards_text(missing="validation_requirements")
+        )
+        code, out, _ = run("task_cards.py", "--cards", cards, "--ledger", ledger)
+        assert code != 0 and "validation_requirements" in out
+
+        io.open(cards, "w", encoding="utf-8").write(_task_cards_text())
+        os.utime(cards, (2_000_000_000, 2_000_000_000))
+        code, out, _ = run("task_cards.py", "--cards", cards, "--ledger", ledger)
+        assert code != 0 and "早于" in out
+
+
+def _pilot_payload():
+    split = {"train_ids": ["A", "B"], "test_ids": ["C"]}
+    return {
+        "protocol": {
+            "questions": {
+                "ques1": {"candidates": [{"name": "基线"}, {"name": "候选模型"}]},
+            },
+        },
+        "questions": {
+            "ques1": {
+                "candidates": [
+                    {"name": "基线", "data_split": split, "ran_ok": True},
+                    {"name": "候选模型", "data_split": split, "ran_ok": False},
+                ],
+            },
+        },
+    }
+
+
+def test_pilot_gate_requires_shared_split_current_protocol_and_real_run():
+    with tempfile.TemporaryDirectory() as tmp:
+        result_path = os.path.join(tmp, "pilot_results.json")
+        payload = _pilot_payload()
+        io.open(result_path, "w", encoding="utf-8").write(json.dumps(payload, ensure_ascii=False))
+        code, out, err = run("pilot_gate.py", "--results", result_path)
+        assert code == 0, out + err
+
+        bad_split = json.loads(json.dumps(payload, ensure_ascii=False))
+        bad_split["questions"]["ques1"]["candidates"][1]["data_split"] = {"train_ids": ["A"], "test_ids": ["B", "C"]}
+        io.open(result_path, "w", encoding="utf-8").write(json.dumps(bad_split, ensure_ascii=False))
+        code, out, _ = run("pilot_gate.py", "--results", result_path)
+        assert code != 0 and "数据划分" in out
+
+        stale = json.loads(json.dumps(payload, ensure_ascii=False))
+        stale["questions"]["ques1"]["candidates"][1]["name"] = "上一轮模型"
+        io.open(result_path, "w", encoding="utf-8").write(json.dumps(stale, ensure_ascii=False))
+        code, out, _ = run("pilot_gate.py", "--results", result_path)
+        assert code != 0 and "协议" in out
+
+        no_success = json.loads(json.dumps(payload, ensure_ascii=False))
+        for candidate in no_success["questions"]["ques1"]["candidates"]:
+            candidate["ran_ok"] = False
+        io.open(result_path, "w", encoding="utf-8").write(json.dumps(no_success, ensure_ascii=False))
+        code, out, _ = run("pilot_gate.py", "--results", result_path)
+        assert code != 0 and "真实跑通" in out
 
 
 # ---------------------------------------------------------------- certify 三态契约
@@ -309,93 +453,6 @@ def test_pkg_scan_clean_package_passes():
         assert code == 0, "干净的包不得被误判"
 
 
-# ---------------------------------------------------------------- EVA gate 契约
-EVA_HEADER = "| id | dimension | criterion | artifact | command | exit_code | numbers | applicability | verdict |\n"
-EVA_SEPARATOR = "|---|---|---|---|---|---:|---|---|---|\n"
-EVA_ROWS = (
-    [(f"E{i}", "E", name) for i, name in enumerate((
-        "三路独立估计路径", "外部理论量级（Balberg）", "解析算例与暴力对照",
-        "误差传导", "多种子临界扫描"), 1)]
-    + [(f"V{i}", "V", name) for i, name in enumerate((
-        "有限尺寸/胞元形状", "阈值灵敏度系数", "全前沿价格灵敏度"), 1)]
-    + [(f"A{i}", "A", name) for i, name in enumerate((
-        "上下界夹逼偏差方向", "单位步长整数前沿", "病态切换记录",
-        "细长胞元结构反推"), 1)]
-)
-
-
-def _write_eva_matrix(path, root, missing_id=None, bad_exit_id=None):
-    rows = [EVA_HEADER, EVA_SEPARATOR]
-    for ident, dim, criterion in EVA_ROWS:
-        artifact = f"artifact-{ident}.json"
-        if ident != missing_id:
-            io.open(os.path.join(root, artifact), "w", encoding="utf-8").write("{}")
-        exit_code = "zero" if ident == bad_exit_id else "0"
-        rows.append(f"| {ident} | {dim} | {criterion} | {artifact} | python check.py {ident} | "
-                    f"{exit_code} | n=100, delta=0.01 | applicable | PASS |\n")
-    io.open(path, "w", encoding="utf-8").write("".join(rows))
-
-
-def test_eva_gate_rejects_empty_matrix():
-    with tempfile.TemporaryDirectory() as tmp:
-        matrix = os.path.join(tmp, "P3-EVA.md")
-        review = os.path.join(tmp, "EVA-review.md")
-        io.open(matrix, "w", encoding="utf-8").write("# empty\n")
-        io.open(review, "w", encoding="utf-8").write("# empty\n")
-        code, out, _ = run("eva_gate.py", matrix, "--review", review, "--root", tmp)
-        assert code == 1 and "E1" in out
-
-
-def test_eva_gate_accepts_complete_numeric_matrices():
-    with tempfile.TemporaryDirectory() as tmp:
-        matrix = os.path.join(tmp, "P3-EVA.md")
-        review = os.path.join(tmp, "EVA-review.md")
-        _write_eva_matrix(matrix, tmp)
-        _write_eva_matrix(review, tmp)
-        code, out, _ = run("eva_gate.py", matrix, "--review", review, "--root", tmp)
-        assert code == 0 and out.count("解析 12 行") == 2
-
-
-def test_eva_gate_rejects_missing_artifact_or_exit_code():
-    with tempfile.TemporaryDirectory() as tmp:
-        matrix = os.path.join(tmp, "P3-EVA.md")
-        review = os.path.join(tmp, "EVA-review.md")
-        _write_eva_matrix(matrix, tmp, missing_id="V2", bad_exit_id="A3")
-        _write_eva_matrix(review, tmp)
-        os.remove(os.path.join(tmp, "artifact-V2.json"))
-        code, out, _ = run("eva_gate.py", matrix, "--review", review, "--root", tmp)
-        assert code == 1 and "V2" in out and "A3" in out
-
-
-def test_eva_gate_accepts_numeric_na_reason_and_checks_its_artifact():
-    with tempfile.TemporaryDirectory() as tmp:
-        matrix = os.path.join(tmp, "P3-EVA.md")
-        review = os.path.join(tmp, "EVA-review.md")
-        _write_eva_matrix(matrix, tmp)
-        _write_eva_matrix(review, tmp)
-        regular = (
-            "| E2 | E | 外部理论量级（Balberg） | artifact-E2.json | "
-            "python check.py E2 | 0 | n=100, delta=0.01 | applicable | PASS |"
-        )
-        na = (
-            "| E2 | E | 外部理论量级（Balberg） | artifact-E2.json | "
-            "python applicability_check.py E2 | 0 | n=0, scale=0 | "
-            "N/A: 题目没有随机几何结构，n=0 | N/A |"
-        )
-        for path in (matrix, review):
-            text = io.open(path, encoding="utf-8").read()
-            io.open(path, "w", encoding="utf-8").write(text.replace(regular, na))
-        code, _, _ = run("eva_gate.py", matrix, "--review", review, "--root", tmp)
-        assert code == 0, "带定量理由的 N/A 应是合法记录"
-
-        text = io.open(matrix, encoding="utf-8").read()
-        io.open(matrix, "w", encoding="utf-8").write(
-            text.replace("artifact-E2.json", "missing-E2.json")
-        )
-        code, out, _ = run("eva_gate.py", matrix, "--review", review, "--root", tmp)
-        assert code == 1 and "E2" in out and "artifact" in out
-
-
 def _make_reproduce_package(tmp, with_runtime=True):
     import shutil
     shutil.copyfile(os.path.join(ROOT, "assets", "reproduce.py"),
@@ -446,104 +503,60 @@ def test_reproduce_accepts_complete_runtime_in_explicit_check_only_mode():
         assert r.returncode == 0, r.stdout.decode("utf-8", "replace")
 
 
-# ---------------------------------------------------------------- v3.2 E/V/A 证据链契约
-def test_skill_requires_v32_evidence_battery():
-    text = read_repo("SKILL.md")
-    required = (
-        "E/V/A 证据包",
-        "三路独立估计路径",
-        "Balberg",
-        "解析算例",
-        "暴力对照",
-        "误差传导实验",
-        "多种子临界扫描",
-        "有限尺寸",
-        "胞元形状",
-        "阈值灵敏度系数",
-        "全前沿价格灵敏度",
-        "上下界夹逼偏差方向",
-        "单位步长整数前沿",
-        "病态切换记录",
-        "细长胞元",
-    )
-    missing = [marker for marker in required if marker not in text]
-    assert not missing, f"SKILL.md 缺少 v3.2 强制条款: {missing}"
-    assert "缺一 fail" in text, "E/V/A 证据包必须有缺项即失败的语义"
-
-
-def test_depth_review_requires_numeric_eva_artifact_matrix():
-    text = read_repo("references/depth-review.md")
-    required = (
-        "E/V/A 证据链硬检查",
-        "artifact",
-        "命令/输出",
-        "方向",
-        "最终答案偏差",
-        "多种子临界扫描",
-        "有限尺寸/胞元形状",
-        "阈值灵敏度系数",
-        "全前沿价格灵敏度",
-        "病态切换",
-        "结构反推",
-    )
-    missing = [marker for marker in required if marker not in text]
-    assert not missing, f"depth-review.md 缺少 E/V/A 检查项: {missing}"
-    assert "缺少工件或数字 = FAIL" in text
-
-
 def test_paper_and_runtime_keep_fragments_are_explicit():
-    skill = read_repo("SKILL.md")
-    paper = read_repo("references/paper-latex.md")
-    templates = "\n".join(
+    """写作合同必须落在任务路径上（v3.3：运行时 JSON 链已废除，改由 ledger 单链承担）。"""
+    workflow = read_repo("workflows/solve-full.md")
+    figure = read_repo("references/figure-style.md")
+    templates = chr(10).join(
         read_repo(path)
         for path in (
             "assets/paper/main.tex",
-            "assets/paper/00-摘要.tex",
-            "assets/paper/05-模型的建立与求解.tex",
-            "assets/paper/06-模型检验.tex",
-            "assets/paper/07-模型评价.tex",
+            "assets/paper/0.摘要.tex",
+            "assets/paper/6.模型检验.tex",
+            "assets/paper/7.模型评价.tex",
+            "assets/paper/10.附录.tex",
         )
     )
+    corpus = workflow + figure + templates
     required = (
-        "model_identity",
-        "逐问结果 JSON",
-        "checks 字段",
-        "聚合校验",
-        "合同先行",
-        "现象—原因—意义",
-        "缺陷—影响—改进",
-        "评委看见什么",
-        "宏携带证书元数据",
-        "reproduce.py",
+        "现象—原因—意义",      # 每张正文图后的解读段
+        "缺陷—影响—改进",      # 模型评价章的缺点写法
+        "评委看见什么",          # 画图前先写目的
+        "证书元数据",            # 宏必须把 n/seed/下界/状态带进论文
+        "[NUMBERS-MISSING]",     # 宏未注入时显式失败，不静默
+        "abstract:end",          # 摘要一页由 .aux 程序化核验
     )
-    missing = [marker for marker in required if marker not in skill + paper + templates]
-    assert not missing, f"keep_fragments 合同缺失: {missing}"
-    assert os.path.isfile(os.path.join(ROOT, "assets", "reproduce.py"))
+    missing = [marker for marker in required if marker not in corpus]
+    assert not missing, "写作合同缺失（未落在任务路径上）: %s" % missing
+
+
+def test_validation_chapter_keeps_six_subsections():
+    """独立检验章六小节是对标人工基线量出的最大单项缺口，不得被通用模板冲掉。"""
+    text = read_repo("assets/paper/6.模型检验.tex")
+    for marker in ("双路互证", "可核事实", "参数灵敏度", "样本量与收敛", "稳健性", "适用边界"):
+        assert marker in text, "模型检验章缺小节: %s" % marker
 
 
 def test_page_gate_appendix_label_matches_reusable_template():
-    skill = read_repo("SKILL.md")
-    paper = read_repo("references/paper-latex.md")
-    appendix = read_repo("assets/paper/11-附录.tex")
-    assert "--appendix-label sec:appendix" in skill + paper
-    assert "\\label{sec:appendix}" in appendix
+    """正文页数与附录页数靠 sec:appendix 切分：模板里要有这个 label，工作流里要真的传这个参数。"""
+    workflow = read_repo("workflows/solve-full.md")
+    appendix = read_repo("assets/paper/10.附录.tex")
+    assert "--appendix-label sec:appendix" in workflow
+    assert chr(92) + "label{sec:appendix}" in appendix
 
 
-def test_computation_standards_cover_six_pending_lessons():
-    text = read_repo("references/computation-standards.md")
-    required = (
-        "内部-内部最近点对",
-        "max(min₂−max₁, min₁−max₂)",
-        "nfirst > 0",
-        "网格与成本文件的单位头",
-        "按**粒子数**计算",
-        "证明候选对集合一致",
-        "块上限",
-        "原子落盘",
-        "恢复扫描",
-    )
-    missing = [marker for marker in required if marker not in text]
-    assert not missing, f"computation-standards.md 未完整覆盖 L4/L5/L6/L7/L10/L11: {missing}"
+def test_general_execution_lessons_survive_in_gotchas():
+    """长批可恢复性等通用教训必须仍在任务路径上；渗流题专有的降级为带触发条件的条目。"""
+    gotchas = read_repo("references/gotchas.md")
+    rules = read_repo("rules/execution-discipline.md")
+    corpus = gotchas + rules
+    for marker in ("分块", "原子", "恢复扫描", "语义主键", "实测"):
+        assert marker in corpus, "通用执行纪律丢失: %s" % marker
+    # 题目专有内容只能出现在带触发条件的条目里，不得成为通用红线
+    redlines = read_repo("rules/modeling-redlines.md")
+    for banned in ("Balberg", "细长胞元", "粒子数"):
+        assert banned not in redlines, "题目专有名词回流到通用红线: %s" % banned
+    assert "随机几何" in gotchas, "渗流类触发条件条目丢失"
 
 
 def test_ledger_emits_certificate_metadata_macros():

@@ -24,6 +24,8 @@ import os
 import re
 import sys
 
+from openconf import load
+
 RASTER = {".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff"}
 VECTOR = {".pdf", ".svg", ".eps"}
 MIN_BYTES = 3000          # 小于此体积的图基本是空框
@@ -144,6 +146,18 @@ def contact_sheet(images, out_path, cols=4, thumb=320):
     return f"已导出 {len(thumbs)} 张缩略图 → {out_path}"
 
 
+def opening_config_int(explicit_value, key):
+    if explicit_value is not None:
+        return explicit_value
+    try:
+        value = load(key)
+        if isinstance(value, bool):
+            raise ValueError(key)
+        return int(value)
+    except (OSError, ValueError, TypeError, KeyError):
+        raise SystemExit(f"请在 开题.md 填写 {key}")
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="图面自动质检与 contact sheet")
     ap.add_argument("figdir")
@@ -152,13 +166,14 @@ def main(argv=None):
     ap.add_argument("--contact", default="图/_contact.png")
     ap.add_argument("--draft", action="store_true",
                     help="骨架阶段：把图未被正文引用与体量地板降级为 WARN；成稿与 G5 门禁不得加此开关")
-    ap.add_argument("--min-figures", type=int, default=12,
-                    help="图总数下限（默认 12）。低于此数即 FAIL——"
-                         "高分基线是 35 张，只画「每问一张」必然在图表维拿 0 分")
-    ap.add_argument("--min-body-figures", type=int, default=8,
-                    help="正文（\\includegraphics 实际引用）图数下限（默认 8）。"
-                         "余下的进补充图表附录，但正文本身必须撑得起论证")
+    ap.add_argument("--min-figures", type=int, default=None,
+                    help="图总数下限。未传参时读取 开题.md 的“图总数下限”。")
+    ap.add_argument("--min-body-figures", type=int, default=None,
+                    help="正文（\\includegraphics 实际引用）图数下限。未传参时读取"
+                         " 开题.md 的“正文引用图下限”。")
     a = ap.parse_args(argv)
+    a.min_figures = opening_config_int(a.min_figures, "图总数下限")
+    a.min_body_figures = opening_config_int(a.min_body_figures, "正文引用图下限")
 
     used = referenced_figures(a.tex) if a.tex else set()
     contact_abs = os.path.abspath(a.contact)

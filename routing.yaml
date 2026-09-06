@@ -1,0 +1,39 @@
+always_read:
+  - rules/modeling-redlines.md
+  - rules/execution-discipline.md
+
+tasks:
+  - id: solve-full
+    labels: { en: Solve a modeling problem end to end, zh: 完整数模解题 / 从读题到交付 }
+    workflow: workflows/solve-full.md
+    trigger_examples:
+      - 帮我完整解这道数模题并写成论文
+      - 从附件分析开始做到最终交付包
+      - 这道建模竞赛题请端到端跑完
+  - id: paper-only
+    labels: { en: Write or revise the paper from verified results, zh: 只写论文 / 基于结果改稿 }
+    workflow: workflows/paper-only.md
+    trigger_examples:
+      - 结果已经算好了，只帮我写论文
+      - 用现有账本重写摘要和正文
+      - 把这些结果整理成可提交的数模论文
+  - id: latex-fix
+    labels: { en: Fix LaTeX compilation or layout, zh: 修 LaTeX / 编译排版修错 }
+    workflow: workflows/latex-fix.md
+    trigger_examples:
+      - 修一下这个 LaTeX 编译错误
+      - PDF 有溢出和缺图，帮我修到能过门禁
+      - 论文模板编译不过
+  - id: gate-triage
+    labels: { en: Diagnose and repair a failed gate, zh: 门禁失败排查 / 证书与审计修复 }
+    workflow: workflows/gate-triage.md
+    trigger_examples:
+      - 看看这个 Gate 为什么没过
+      - 证书显示 inconclusive 应该怎么处理
+      - 数字审计和图表门禁失败了
+  - id: other
+    labels: { en: Other or unlisted task, zh: 其他 / 未列出的数模任务 }
+    workflow: workflows/task-execution.md
+    trigger_examples:
+      - 其他没有明确路由的数模任务
+      - 先帮我判断这项工作该走哪个流程

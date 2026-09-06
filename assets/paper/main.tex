@@ -1,80 +1,90 @@
-% ============================================================================
-% 主控文件：分节 tex 的装配点。编译入口只有这一个文件。
-%   latexmk -xelatex -halt-on-error -interaction=nonstopmode main.tex
-%   无 latexmk：xelatex main.tex 跑两遍（有 bib：xelatex -> biber -> xelatex 两遍）
-%
-% 【本结构的来历】对齐同题人工基线交付物（53 页）的实际分节：
-%   12 个顶层 input；每问再拆「分析与准备 / 建模与求解」两片；
-%   模型检验独立成大章；附录分三层（正文附录 / 补充图表 / 源程序）；
-%   AI 工具使用声明独立成节。篇幅预算见 README.md。
-%
-% 【铁律】有官方模板 / 指定 class 时以官方模板为准，本文件只贡献「分节装配」
-%   这一结构：把官方 class 换进 \documentclass，input 顺序照抄下方即可。
-% 【合同先行】正文前先冻结：
-%   结果/运行时/model_identity.json -> 每问 qN.json（必须有 checks 字段）
-%   -> aggregate.json -> results_ledger.json -> numbers.tex -> 本组分节 tex。
-%   aggregate.json 的逐问校验与官方脚本命令/退出码必须随 Gate 台账保存。
-% ============================================================================
-\documentclass[12pt,a4paper]{ctexart}
-
-\usepackage[margin=2.5cm]{geometry}
-\usepackage{amsmath,amssymb,bm}
-\usepackage{graphicx}
-\usepackage{booktabs}
-\usepackage{longtable}
+\PassOptionsToPackage{quiet}{xeCJK}
+\documentclass[withoutpreface,bwprint]{format}
+\usepackage{etoolbox}
+\usepackage{ctex}
+\BeforeBeginEnvironment{tabular}{\zihao{-5}}
+% 参考文献改用纯tex格式，不再需要natbib+bibtex
+\usepackage[framemethod=TikZ]{mdframed}
+\usepackage{url}
+\usepackage{array}
 \usepackage{tabularx}
-\usepackage{caption}
-\usepackage{subcaption}
-\usepackage{listings}
-\usepackage[hidelinks]{hyperref}
+\usepackage{longtable}
+\newcolumntype{C}{>{\centering\arraybackslash}X}
+\newcolumntype{R}{>{\raggedleft\arraybackslash}X}
+\newcolumntype{L}{>{\raggedright\arraybackslash}X}
 
-\graphicspath{{../图/}{图/}}
-\captionsetup{font=small}
+\renewcommand{\textbf}[1]{{\song\bfseries #1}}
 
-% ---------------------------------------------------------------------------
-% 数值宏注入位。numbers.tex 由台账发射：
-%   python scripts/ledger.py --emit-tex 结果/results_ledger.json -o 论文/numbers.tex
-%
-% 【踩过的坑，别再犯】
-%   1. 忘了写这一行 -> 全文宏未定义，编译报一堆 Undefined control sequence，
-%      而 numbers.tex 里明明有。缺宏时先查这一行在不在。
-%   2. LaTeX 宏名不能含数字：\qNumOne 合法、\qNum1 非法。台账键一律用纯字母
-%      驼峰（qOneThreshold / qTwoRateLow），发射器负责转换。
-%   3. 下面用 IfFileExists 保护，但故意让缺失可见：没有台账时正文会打出
-%      [NUMBERS-MISSING]，而不是静默编译过去骗自己。
-%   4. 宏还应包含证书的 N/Seed/Bound/Verdict/Resolved/Delta/U/Status；
-%      论文只引用宏，不手抄证书字段。
-% ---------------------------------------------------------------------------
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta}
+\tikzset{
+  box/.style={rectangle, draw, minimum width=3.2cm, minimum height=0.9cm, align=center},
+  arrow/.style={thick, -{Stealth}}
+}
+
+% 数值宏由 results_ledger.json 通过 ledger.py --emit-tex 生成。
+% 缺失时保留可见失败标记，不能静默编译成看似完整的论文。
 \IfFileExists{numbers.tex}{%
   \input{numbers.tex}%
 }{%
   \newcommand{\NUMBERSMISSING}{\textbf{[NUMBERS-MISSING]}}%
-  \typeout{!!! numbers.tex 未找到：先跑 ledger.py --emit-tex}%
+  \typeout{[NUMBERS-MISSING] numbers.tex 未找到：先运行 ledger.py --emit-tex}%
 }
 
-\title{题号 + 题目名称}
-\author{}   % 匿名：不写姓名、学校、指导教师
-\date{}
 
+
+
+
+
+
+
+\title{论文标题}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% 正文
 \begin{document}
 
-% 首屏：队号 / 组别 / 承诺书按赛制要求填。禁止出现「待填」——
-% 连续两轮盲评栽在这一条，rules 维直接扣到 1 分。
-\input{00-摘要.tex}
+% 标题
+{\centering\zihao{3}\bfseries 论文标题\par}
 
-\newpage
 \setcounter{page}{1}
 
-\input{01-引言.tex}
-\input{02-总体分析.tex}
-\input{03-模型假设.tex}
-\input{04-符号说明.tex}
-\input{05-模型的建立与求解.tex}
-\input{06-模型检验.tex}
-\input{07-模型评价.tex}
-\input{08-模型改进推广.tex}
-\input{09-AI工具使用声明.tex}
-\input{10-参考文献.tex}
-\input{11-附录.tex}
+\thispagestyle{empty}
+
+\input{0.摘要.tex}
+\thispagestyle{empty}
+
+\tableofcontents
+\thispagestyle{empty}
+\newpage
+
+\setcounter{page}{1}
+
+\input{1.引言.tex}
+
+\input{2.总体分析.tex}
+
+\input{3.模型假设.tex}
+
+\input{4.符号说明.tex}
+
+\input{5.模型的建立与求解.tex}
+
+\input{6.模型检验.tex}
+
+\input{7.模型评价.tex}
+
+\input{8.模型改进推广.tex}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% 参考文献
+\input{9.参考文献.tex}
+
+
+\input{10.附录.tex}
+
 
 \end{document}

@@ -7,3 +7,8 @@ __pycache__/
 *.fls
 *.fdb_latexmk
 *.synctex.gz
+main.pdf
+main.toc
+main.xdv
+*.fls
+*.fdb_latexmk

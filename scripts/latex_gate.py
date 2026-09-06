@@ -18,6 +18,8 @@ import os
 import re
 import sys
 
+from openconf import load
+
 BLOCKING_PATTERNS = [
     (r"^! (.+)$", "真实错误"),
     (r"LaTeX Error: (.+)$", "LaTeX Error"),
@@ -135,6 +137,18 @@ def bib_missing(tex_path):
     return not has_bib
 
 
+def opening_config_int(explicit_value, key):
+    if explicit_value is not None:
+        return explicit_value
+    try:
+        value = load(key)
+        if isinstance(value, bool):
+            raise ValueError(key)
+        return int(value)
+    except (OSError, ValueError, TypeError, KeyError):
+        raise SystemExit(f"请在 开题.md 填写 {key}")
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="LaTeX 编译日志门禁")
     ap.add_argument("log")
@@ -144,19 +158,19 @@ def main(argv=None):
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--pdf", default=None,
                     help="编译出的 PDF。给了就以它为页数权威来源（日志格式不可靠）。")
-    ap.add_argument("--min-pages", type=int, default=40,
-                    help="总页数下限（默认 40）。竞赛规范只约束正文（尽量 20 页以内），"
-                         "附录不限页；总页数上不去＝附录没做，而附录正是拉开差距的地方。"
-                         "高分基线 53 页。")
+    ap.add_argument("--min-pages", type=int, default=None,
+                    help="总页数下限。未传参时读取 开题.md 的“总页数下限”。")
     ap.add_argument("--appendix-label", default=None,
                     help="附录起始处的 \\label 名。给了就据此算正文页数并检查 --max-body-pages。")
-    ap.add_argument("--max-body-pages", type=int, default=20,
-                    help="正文页数上限（默认 20，即竞赛规范的『尽量控制在 20 页以内』）。"
+    ap.add_argument("--max-body-pages", type=int, default=None,
+                    help="正文页数上限。未传参时读取 开题.md 的“正文页数上限”；"
                          "仅在给了 --appendix-label 时生效。")
     ap.add_argument("--tex", default=None,
                     help="主 tex 源路径。给了就做结构检查：参考文献节存在性"
                          "（mmflow 实测：整篇交付可以零参考文献）。")
     a = ap.parse_args(argv)
+    a.min_pages = opening_config_int(a.min_pages, "总页数下限")
+    a.max_body_pages = opening_config_int(a.max_body_pages, "正文页数上限")
 
     blocking, nonblocking, pages = parse_log(a.log)
     pages_src = "log"

@@ -1,0 +1,113 @@
+% ── 全文通用形态（Mrite 高教社杯规范）──
+% 正文一律自然段；禁分点符号、禁 	extbf（摘要“针对问题X”与问题重述“问题N：”除外）。
+% 跨页表用 longtable，短表用 tabularx；列宽比例总和 = 1.04 − 0.04 × N（N 为列数），格内文字不换行。
+% 图宽 0.8	extwidth，表宽 	extwidth；图题交给 \caption，绘图代码不写 set_title()；图表必须在正文被引用。
+% 章与章、节与节之间一律不加 
+ewpage。
+% ── 本节合同（六小节缺一不可）──
+% 本章须独立成章，不得把检验散落在各问结尾。对标同题人工基线，其检验章体量为全文第二大。
+% ① 双路互证：两条独立实现算同一量，给一致性证据与差异定位。
+% ② 与可核事实对表：题面或附件能验证的量，逐条列“声称值 ↔ 实测值”。
+% ③ 参数灵敏度：逐参数扰动 → 结论是否翻转，给数字。
+% ④ 样本量与收敛：证书随样本量的变化，说明为何足以分辨相邻档。
+% ⑤ 稳健性与对照实验：换口径 / 换种子 / 换实现。
+% ⑥ 适用边界与失效域。
+%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{模型的检验}
+\label{sec:validation}
+
+为验证本文所建模型的有效性、可分辨性与适用边界，本章从六个方面独立检验。
+
+\subsection{双路互证}
+
+对每问的最终答案，用主路线与独立核验路线各算一次。两路须在实现层面独立（不同估计量、解析极限、暴力小实例或不同离散化），不得共享核心判定代码。差异超过分辨率 $\Delta$ 时必须定位原因，不取平均、不择优报喜。
+
+\begin{table}[H]
+  \centering
+  \caption{双路互证结果}
+  \label{tab:crosscheck}
+  \begin{tabularx}{\textwidth}{CCCCC}
+    \toprule
+    问题 & 主路线取值 & 核验路线取值 & 差异 & 差异$/\Delta$ \\
+    \midrule
+    ... & ... & ... & ... & ... \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+如表\ref{tab:crosscheck}所示，...
+
+\subsection{与可核事实对表}
+
+题面与附件中一切可独立核验的量（计数、规模、边界值、给定档位），逐条列出声称值与实测值。此处对表的是\textbf{判定层与生成层两条链路}：生成器产出的构型统计量也须与附件同量级，只对其中一层等于裸奔。
+
+\begin{table}[H]
+  \centering
+  \caption{可核事实对表}
+  \label{tab:factcheck}
+  \begin{tabularx}{\textwidth}{LCCC}
+    \toprule
+    题面/附件事实 & 出处 & 本文实测 & 是否一致 \\
+    \midrule
+    ... & ... & ... & ... \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\subsection{参数灵敏度}
+
+逐参数在工作点两侧扰动，报告输出变化量与结论是否翻转。灵敏度必须给数字，不得以“影响可忽略”定性结案。
+
+\begin{table}[H]
+  \centering
+  \caption{参数灵敏度分析}
+  \label{tab:sensitivity}
+  \begin{tabularx}{\textwidth}{LCCCC}
+    \toprule
+    参数 & 扰动幅度 & 输出变化 & 变化$/\Delta$ & 结论是否翻转 \\
+    \midrule
+    ... & ... & ... & ... & ... \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+如表\ref{tab:sensitivity}所示，...
+
+\subsection{样本量与收敛}
+
+给出证书随样本量的变化曲线，并说明当前样本量为何足以分辨相邻档位。此处须区分两件事：\textbf{达标}（下界越过阈值）与\textbf{已分辨}（不确定度 $u \le \Delta/3$）。未分辨的结论须降到题面精度的下一档报告，不得报满精度。
+
+% 收敛曲线图：有图后取消下面的注释，路径指向 求解/问题X/图片/
+% \begin{figure}[H]
+%   \centering
+%   \includegraphics[width=0.8\textwidth]{../求解/图/收敛曲线.png}
+%   \caption{证书下界随样本量的收敛}
+%   \label{fig:convergence}
+% \end{figure}
+
+% 如图\ref{fig:convergence}所示，...
+
+\subsection{稳健性与对照实验}
+
+分别更换口径、更换随机种子、更换实现，检查结论是否稳定。答案稳定性复核须用至少两个独立主种子重跑终验，按题目精度取整后答案不变。
+
+\begin{table}[H]
+  \centering
+  \caption{稳健性对照实验}
+  \label{tab:robustness}
+  \begin{tabularx}{\textwidth}{LCCC}
+    \toprule
+    变更项 & 变更内容 & 结果 & 是否翻转 \\
+    \midrule
+    换口径 & ... & ... & ... \\
+    换种子 & ... & ... & ... \\
+    换实现 & ... & ... & ... \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\subsection{适用边界与失效域}
+
+说明模型在何种参数区间、何种数据规模、何种假设下成立，以及越出边界后首先失效的是哪一条。凡在检验中被降级的结论，此处须写明其实际强度等级，并与降级声明逐条一致。
