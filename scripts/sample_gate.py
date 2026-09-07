@@ -3,8 +3,8 @@
 
 为什么需要
 ----------
-loop2-r2 的教训:2 万样本在 p≈0.90 阈值附近时,单侧下界 0.8988<0.90 判"不可行",
-4 万样本时 0.9016≥0.90 判"可行"——同一个物理点,样本量决定结论(mmflow 据此把
+实测教训:阈值附近样本量不足时,单侧下界落在阈值下方判"不可行",
+样本量翻倍后下界越过阈值判"可行"——同一个物理点,样本量决定结论(另一份交付据此把
 答案从 0.87% 改成 0.88%)。逐场景的样本量纪律必须可执行、有退出码,
 而不是规范条文(历史证明只写规范会漏,见 degenerate.py 头注)。
 
@@ -43,6 +43,7 @@ import argparse
 import json
 import math
 import os
+import re
 import sys
 
 Z = 1.959963984540054
@@ -177,7 +178,24 @@ def main(argv=None) -> int:
     ap.add_argument("--n-floor", type=int, default=20000)
     ap.add_argument("--report", help="报告 JSON 输出路径")
     ap.add_argument("--selftest", action="store_true")
+    ap.add_argument("--not-applicable", nargs="?", const="", default=None,
+                    help="不适用时的定量理由；输出 N/A 记录并退出 0")
     args = ap.parse_args(argv)
+    if args.not_applicable is not None:
+        reason = args.not_applicable.strip()
+        if not reason:
+            print("USAGE：--not-applicable 必须给出非空的定量理由", file=sys.stderr)
+            return 2
+        if not re.search(r"\d", reason):
+            print("USAGE：--not-applicable 理由必须包含定量信息", file=sys.stderr)
+            return 2
+        report = {"verdict": "N/A", "reason": reason,
+                  "gate": "逐场景样本量门禁", "problems": [], "notes": []}
+        if args.report:
+            with open(args.report, "w", encoding="utf-8") as fh:
+                json.dump(report, fh, ensure_ascii=False, indent=1)
+        print(f"N/A：{reason}" + (f" → {args.report}" if args.report else ""))
+        return 0
     if args.selftest:
         return selftest()
     if not args.scenarios or not os.path.exists(args.scenarios):

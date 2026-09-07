@@ -37,6 +37,7 @@ import importlib
 import importlib.util
 import json
 import os
+import re
 import sys
 
 
@@ -72,16 +73,38 @@ def rate(fn, n: int, threshold: float, trials: int, seed0: int) -> float:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--fn", required=True, help="判定函数：模块:函数，签名 (n, threshold, seed) -> bool")
-    ap.add_argument("--threshold", type=float, required=True, help="题面判定阈值（正常值）")
+    ap.add_argument("--fn", help="判定函数：模块:函数，签名 (n, threshold, seed) -> bool")
+    ap.add_argument("--threshold", type=float, help="题面判定阈值（正常值）")
     ap.add_argument("--trials", type=int, default=300)
     ap.add_argument("--seed0", type=int, default=20260904)
     ap.add_argument("--n-probe", type=int, default=None,
                     help="额外探针规模：给一个题面档位的个体数，用于量级自洽检查（R14）")
     ap.add_argument("--allow-single", action="store_true",
                     help="单个个体在几何上确实可能连通两端时才可加；必须在论文中说明理由")
+    ap.add_argument("--not-applicable", nargs="?", const="", default=None,
+                    help="不适用时的定量理由；输出 N/A 记录并退出 0")
     ap.add_argument("--out", default="结果/gates/G3-退化检验.json")
     a = ap.parse_args(argv)
+
+    if a.not_applicable is not None:
+        reason = a.not_applicable.strip()
+        if not reason:
+            print("USAGE：--not-applicable 必须给出非空的定量理由", file=sys.stderr)
+            return 2
+        if not re.search(r"\d", reason):
+            print("USAGE：--not-applicable 理由必须包含定量信息", file=sys.stderr)
+            return 2
+        report = {"verdict": "N/A", "reason": reason,
+                  "gate": "退化规模检验", "checks": []}
+        os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
+        with open(a.out, "w", encoding="utf-8") as f:
+            json.dump(report, f, ensure_ascii=False, indent=2)
+            f.write("\n")
+        print(f"N/A：{reason} → {a.out}")
+        return 0
+    if not a.fn or a.threshold is None:
+        print("USAGE：--fn 与 --threshold 在未使用 --not-applicable 时必填", file=sys.stderr)
+        return 2
 
     fn = load_callable(a.fn)
     checks = []

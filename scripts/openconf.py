@@ -13,6 +13,12 @@ from typing import Any
 CONFIG_PATH = Path(__file__).resolve().parent.parent / "开题.md"
 _INTEGER = re.compile(r"[+-]?\d+")
 _DECIMAL = re.compile(r"[+-]?(?:\d+\.\d*|\d*\.\d+)")
+_PLACEHOLDER = re.compile(r"^<[^<>]+>$")
+REQUIRED_KEYS = (
+    "赛事", "正文页数上限", "总页数下限", "图总数下限", "正文引用图下限",
+    "摘要页数", "论文模板", "目标图样例目录", "总时限", "主计算机时上限", "本机核数",
+)
+IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tif", ".tiff", ".webp", ".svg"}
 
 
 def _strip_comment(value: str) -> str:
@@ -54,6 +60,45 @@ def _parse_value(value: str) -> Any:
     return value
 
 
+def _is_unfilled(value: object) -> bool:
+    return value == "" or (isinstance(value, str) and bool(_PLACEHOLDER.fullmatch(value.strip())))
+
+
+def _is_readable_image(path: Path) -> bool:
+    """Check a common image signature after opening the candidate for reading."""
+    if not path.is_file() or path.suffix.lower() not in IMAGE_SUFFIXES:
+        return False
+    try:
+        header = path.read_bytes()[:64]
+    except OSError:
+        return False
+    suffix = path.suffix.lower()
+    signatures = {
+        ".png": header.startswith(b"\x89PNG\r\n\x1a\n"),
+        ".jpg": header.startswith(b"\xff\xd8\xff"),
+        ".jpeg": header.startswith(b"\xff\xd8\xff"),
+        ".gif": header.startswith((b"GIF87a", b"GIF89a")),
+        ".bmp": header.startswith(b"BM"),
+        ".tif": header.startswith((b"II*\x00", b"MM\x00*")),
+        ".tiff": header.startswith((b"II*\x00", b"MM\x00*")),
+        ".webp": header.startswith(b"RIFF") and header[8:12] == b"WEBP",
+        ".svg": b"<svg" in header.lower(),
+    }
+    return signatures[suffix]
+
+
+def validate_opening_config(config: dict[str, Any]) -> None:
+    """Reject unfilled template fields and an unusable figure-sample directory."""
+    missing = [key for key in REQUIRED_KEYS if key not in config or _is_unfilled(config[key])]
+    if missing:
+        raise ValueError("请在 开题.md 填写 " + "、".join(missing))
+    sample_dir = Path(str(config["目标图样例目录"])).expanduser()
+    if not sample_dir.is_dir():
+        raise ValueError(f"目标图样例目录不存在或不是目录：{sample_dir}")
+    if not any(_is_readable_image(path) for path in sample_dir.iterdir()):
+        raise ValueError(f"目标图样例目录没有可读图片文件：{sample_dir}")
+
+
 def load_all() -> dict[str, Any]:
     """Return all non-empty keys from the flat YAML mapping in ``开题.md``.
 
@@ -87,13 +132,19 @@ def load_all() -> dict[str, Any]:
 def load(key: str) -> Any:
     """Load one required value without any fallback or default."""
     config = load_all()
-    if key not in config or config[key] == "":
+    if key not in config or _is_unfilled(config[key]):
         raise KeyError(key)
     return config[key]
 
 
 def main() -> int:
-    print(json.dumps(load_all(), ensure_ascii=False, indent=2))
+    try:
+        config = load_all()
+        validate_opening_config(config)
+    except (OSError, ValueError, KeyError) as exc:
+        print(f"FAIL：{exc}")
+        return 1
+    print(json.dumps(config, ensure_ascii=False, indent=2))
     return 0
 
 

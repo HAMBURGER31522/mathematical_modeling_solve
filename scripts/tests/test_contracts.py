@@ -18,6 +18,7 @@ import io
 import importlib
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -48,14 +49,15 @@ def as_json(text):
 
 
 def test_openconf_reads_all_opening_configuration_keys():
-    code, out, err = run("openconf.py")
-    assert code == 0, err
-    config = as_json(out)
+    if SCRIPTS not in sys.path:
+        sys.path.insert(0, SCRIPTS)
+    openconf = importlib.import_module("openconf")
+    config = openconf.load_all()
     assert set(config) == {
         "赛事", "正文页数上限", "总页数下限", "图总数下限", "正文引用图下限",
         "摘要页数", "论文模板", "目标图样例目录", "总时限", "主计算机时上限", "本机核数",
     }
-    assert config["总页数下限"] == 40
+    assert config["总页数下限"].startswith("<必填:")
 
 
 def test_gate_defaults_come_from_opening_configuration():
@@ -106,6 +108,40 @@ def test_gate_help_omits_legacy_numeric_defaults():
         assert not any(value in text for value in legacy_default), text
 
 
+def test_openconf_rejects_placeholders_and_requires_usable_sample_images():
+    """示例配置不是已配置；图样例目录必须是实际可读的图片目录。"""
+    code, out, err = run("openconf.py")
+    assert code == 1 and "正文页数上限" in out + err, "根配置的 <必填:...> 未被拒绝"
+
+    if SCRIPTS not in sys.path:
+        sys.path.insert(0, SCRIPTS)
+    openconf = importlib.import_module("openconf")
+    original_path = openconf.CONFIG_PATH
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            config_path = Path(tmp, "开题.md")
+            image_dir = Path(tmp, "samples")
+            image_dir.mkdir()
+            config_path.write_text(
+                "赛事: 测试赛\n正文页数上限: 20\n总页数下限: 40\n图总数下限: 12\n"
+                "正文引用图下限: 8\n摘要页数: 1\n论文模板: 官方\n"
+                f"目标图样例目录: {image_dir}\n总时限: 72h\n主计算机时上限: 20h\n本机核数: 32\n",
+                encoding="utf-8",
+            )
+            openconf.CONFIG_PATH = config_path
+            try:
+                openconf.validate_opening_config(openconf.load_all())
+            except ValueError as exc:
+                assert "可读图片" in str(exc)
+            else:
+                raise AssertionError("空图目录未被拒绝")
+
+            Path(image_dir, "sample.png").write_bytes(b"\x89PNG\r\n\x1a\n")
+            openconf.validate_opening_config(openconf.load_all())
+    finally:
+        openconf.CONFIG_PATH = original_path
+
+
 TASK_CARD_FIELDS = (
     "objective", "input_data", "decision_variables", "constraints", "expected_outputs",
     "dependencies", "risks", "validation_requirements", "data_evidence",
@@ -147,14 +183,20 @@ def _pilot_payload():
     return {
         "protocol": {
             "questions": {
-                "ques1": {"candidates": [{"name": "基线"}, {"name": "候选模型"}]},
+                "ques1": {
+                    "budget_seconds": 30,
+                    "candidates": [{"name": "基线"}, {"name": "候选模型"}],
+                },
             },
         },
         "questions": {
             "ques1": {
                 "candidates": [
-                    {"name": "基线", "data_split": split, "ran_ok": True},
-                    {"name": "候选模型", "data_split": split, "ran_ok": False},
+                    {"name": "基线", "is_baseline": True, "data_split": split,
+                     "metric_name": "MAE", "seconds": 5, "ran_ok": True},
+                    {"name": "候选模型", "is_baseline": False, "data_split": split,
+                     "metric_name": "MAE", "seconds": 12, "ran_ok": False,
+                     "failure": "数值求解未收敛"},
                 ],
             },
         },
@@ -248,7 +290,7 @@ def test_figqa_expands_input():
     with tempfile.TemporaryDirectory() as tmp:
         _make_paper(tmp, referenced_in_section=True)
         out_json = os.path.join(tmp, "r.json")
-        _, out, _ = run("figqa.py", os.path.join(tmp, "图"),
+        _, out, _ = run("figqa.py", "--min-figures", "1", "--min-body-figures", "0", os.path.join(tmp, "图"),
                         "--tex", os.path.join(tmp, "论文", "main.tex"),
                         "--out", out_json, "--contact", os.path.join(tmp, "图", "_c.png"))
         rep = json.load(io.open(out_json, encoding="utf-8"))
@@ -263,7 +305,7 @@ def test_figqa_unreferenced_is_fail_not_warn():
     with tempfile.TemporaryDirectory() as tmp:
         _make_paper(tmp, referenced_in_section=True)
         out_json = os.path.join(tmp, "r.json")
-        run("figqa.py", os.path.join(tmp, "图"), "--tex", os.path.join(tmp, "论文", "main.tex"),
+        run("figqa.py", "--min-figures", "1", "--min-body-figures", "0", os.path.join(tmp, "图"), "--tex", os.path.join(tmp, "论文", "main.tex"),
             "--out", out_json, "--contact", os.path.join(tmp, "图", "_c.png"))
         rep = json.load(io.open(out_json, encoding="utf-8"))
         orphan = next(f for f in rep["figures"] if f["file"] == "fig_orphan.png")
@@ -341,7 +383,7 @@ def test_figqa_draft_downgrades_volume_floor():
         run("figqa.py", os.path.join(tmp, "图"),
             "--tex", os.path.join(tmp, "论文", "main.tex"),
             "--out", out_json, "--contact", os.path.join(tmp, "图", "_c.png"),
-            "--min-figures", "12", "--draft")
+            "--min-figures", "12", "--min-body-figures", "0", "--draft")
         rep = json.load(io.open(out_json, encoding="utf-8"))
         assert any("图总数" in m for m in rep["top_warn"]), "draft 下应降级为 WARN"
         assert not any("图总数" in m for m in rep["top_fail"])
@@ -360,7 +402,7 @@ def test_latex_gate_blocks_thin_paper():
     """总页数低于 --min-pages 必须阻断。"""
     with tempfile.TemporaryDirectory() as tmp:
         log = _fake_log(tmp, pages=25)
-        rc, out, _ = run("latex_gate.py", log, "--min-pages", "40")
+        rc, out, _ = run("latex_gate.py", log, "--min-pages", "40", "--max-body-pages", "20")
         assert rc == 1, "页数不足必须退出码 1"
         assert "总页数 25" in out, out[:300]
 
@@ -369,7 +411,7 @@ def test_latex_gate_unknown_page_count_is_blocking():
     """核不到页数就不能算通过——否则地板被静默跳过（实测踩过）。"""
     with tempfile.TemporaryDirectory() as tmp:
         log = _fake_log(tmp, pages=None)
-        rc, out, _ = run("latex_gate.py", log, "--min-pages", "40")
+        rc, out, _ = run("latex_gate.py", log, "--min-pages", "40", "--max-body-pages", "20")
         assert rc == 1, "页数取不到必须判 FAIL 而不是 PASS"
         assert "页数无法判定" in out, out[:300]
 
@@ -377,7 +419,7 @@ def test_latex_gate_unknown_page_count_is_blocking():
 def test_latex_gate_passes_thick_paper():
     with tempfile.TemporaryDirectory() as tmp:
         log = _fake_log(tmp, pages=53)
-        rc, _, _ = run("latex_gate.py", log, "--min-pages", "40")
+        rc, _, _ = run("latex_gate.py", log, "--min-pages", "40", "--max-body-pages", "20")
         assert rc == 0, "53 页应当通过"
 
 
@@ -954,13 +996,17 @@ def test_published_skill_carries_no_lab_narrative():
         chr(70) + ":" + chr(92): "本机绝对路径（Windows）",
         chr(70) + ":/": "本机绝对路径（正斜杠）",
     }
+    # 放行检测器自身：它的职责就是识别这些模式，文档里说明自己检测什么不算泄漏
+    exempt = {"scripts/pkg_scan.py"}
     offenders = []
     for dirpath, dirnames, filenames in os.walk(ROOT):
         dirnames[:] = [d for d in dirnames if d not in (".git", "__pycache__", "tests", "fonts")]
         for name in filenames:
-            if not name.endswith((".md", ".yaml")):
+            if not name.endswith((".md", ".yaml", ".py")):
                 continue
             rel = os.path.relpath(os.path.join(dirpath, name), ROOT).replace(chr(92), "/")
+            if rel in exempt:
+                continue
             text = read_repo(rel) or ""
             for token, why in banned.items():
                 if token in text:
@@ -1047,7 +1093,9 @@ def test_no_baseline_problem_specifics_leak_into_the_skill():
         "同题基线": "同上",
         "华数杯": "基线赛事名",
     }
-    allow = {"references/method-cards.json"}
+    allow = {"references/method-cards.json",
+             # 它的职责就是检测这些模式，文档里描述自己检测什么不算泄漏
+             "scripts/pkg_scan.py"}
     offenders = []
     for dirpath, dirnames, filenames in os.walk(ROOT):
         dirnames[:] = [d for d in dirnames if d not in (".git", "__pycache__", "tests", "fonts")]
@@ -1266,7 +1314,7 @@ def test_design_gate_enforces_per_question_completeness():
 
     full = "# 建模详要" + chr(10) + chr(10) + "## 问题一" + chr(10)
     for section in DESIGN_SECTIONS:
-        full += "### " + section + chr(10) + "具体内容写在这里，足够下游据以执行。" + chr(10)
+        full += "### " + section + chr(10) + "采用线性回归，令 $x=1$，足够下游据以执行。" + chr(10)
 
     with tempfile.TemporaryDirectory() as tmp:
         out = os.path.join(tmp, "g.md")
@@ -1279,13 +1327,203 @@ def test_design_gate_enforces_per_question_completeness():
         assert r.returncode == 1, "缺一项内容未被判死"
 
         empty = make(tmp, "empty.md",
-                     full.replace("具体内容写在这里，足够下游据以执行。" + chr(10), "", 1))
+                     full.replace("采用线性回归，令 $x=1$，足够下游据以执行。" + chr(10), "", 1))
         r = subprocess.run([PY, gate, empty, "--out", out], capture_output=True, env=ENV)
         assert r.returncode == 1, "有标题无内容未被判死"
 
         none = make(tmp, "none.md", "# 建模详要" + chr(10) + "还没写。" + chr(10))
         r = subprocess.run([PY, gate, none, "--out", out], capture_output=True, env=ENV)
         assert r.returncode == 1, "没有任何问题小节未被判死"
+
+
+def test_design_gate_rejects_boilerplate_and_sections_without_concrete_subject():
+    """长度达标的套话和无可指认具体物的散文都不能冒充建模详要。"""
+    gate = os.path.join(ROOT, "scripts", "design_gate.py")
+
+    def make(tmp, name, phrase):
+        text = "# 建模详要\n\n## 问题一\n"
+        for section in DESIGN_SECTIONS:
+            text += "### " + section + "\n" + phrase + "\n"
+        path = os.path.join(tmp, name)
+        io.open(path, "w", encoding="utf-8").write(text)
+        return path
+
+    with tempfile.TemporaryDirectory() as tmp:
+        out = os.path.join(tmp, "g.md")
+        boilerplate = make(tmp, "boilerplate.md", "本节内容将在后续讨论确定后补充完整并同步更新到本文档中。")
+        r = subprocess.run([PY, gate, boilerplate, "--out", out], capture_output=True, env=ENV)
+        assert r.returncode == 1, "十节套话未被判空节"
+        assert "空洞措辞" in r.stdout.decode("utf-8", "replace")
+
+        vague = make(tmp, "vague.md", "我们会认真分析问题并综合考虑各种因素，从而得到合理可信的结论。")
+        r = subprocess.run([PY, gate, vague, "--out", out], capture_output=True, env=ENV)
+        assert r.returncode == 1, "没有可指认具体物的长段落未被判空节"
+        assert "可指认的具体物" in r.stdout.decode("utf-8", "replace")
+
+
+def test_pilot_gate_enforces_candidate_baseline_metric_budget_and_failure_records():
+    """Pilot 必须保留可比较的完整证据，跑挂也不能从记录中消失。"""
+    with tempfile.TemporaryDirectory() as tmp:
+        result_path = os.path.join(tmp, "pilot_results.json")
+
+        def check(payload, expected):
+            io.open(result_path, "w", encoding="utf-8").write(json.dumps(payload, ensure_ascii=False))
+            code, out, err = run("pilot_gate.py", "--results", result_path)
+            assert code == 1 and expected in out, out + err
+
+        one_candidate = _pilot_payload()
+        one_candidate["questions"]["ques1"]["candidates"] = one_candidate["questions"]["ques1"]["candidates"][:1]
+        check(one_candidate, "至少 2")
+
+        no_baseline = _pilot_payload()
+        no_baseline["questions"]["ques1"]["candidates"][0]["is_baseline"] = False
+        check(no_baseline, "is_baseline")
+
+        mixed_metric = _pilot_payload()
+        mixed_metric["questions"]["ques1"]["candidates"][1]["metric_name"] = "RMSE"
+        check(mixed_metric, "metric_name")
+
+        over_budget = _pilot_payload()
+        over_budget["questions"]["ques1"]["candidates"][1]["seconds"] = 31
+        check(over_budget, "budget_seconds")
+
+        hidden_failure = _pilot_payload()
+        hidden_failure["questions"]["ques1"]["candidates"][1].pop("failure")
+        check(hidden_failure, "failure")
+
+        no_budget = _pilot_payload()
+        no_budget["protocol"]["questions"]["ques1"].pop("budget_seconds")
+        io.open(result_path, "w", encoding="utf-8").write(json.dumps(no_budget, ensure_ascii=False))
+        code, out, err = run("pilot_gate.py", "--results", result_path)
+        assert code == 0 and "时间预算未声明" in out, out + err
+
+
+def test_latex_gate_blocks_missing_numbers_macro_injection():
+    """numbers.tex 缺失留下的显式标记必须让编译门禁失败。"""
+    with tempfile.TemporaryDirectory() as tmp:
+        log = _fake_log(tmp, pages=53)
+        with io.open(log, "a", encoding="utf-8") as fh:
+            fh.write("[NUMBERS-MISSING] numbers.tex 未找到\n")
+        code, out, err = run("latex_gate.py", log, "--min-pages", "40", "--max-body-pages", "20")
+        assert code == 1, "[NUMBERS-MISSING] 不能随编译成功静默通过"
+        assert "ledger.py --emit-tex" in out + err
+
+
+def test_latex_gate_requires_abstract_label_and_declared_abstract_page_count():
+    """摘要 label 缺失或落在错误页时，摘要一页承诺必须被阻断。"""
+    with tempfile.TemporaryDirectory() as tmp:
+        log = _fake_log(tmp, pages=53)
+        aux = os.path.join(tmp, "main.aux")
+        io.open(aux, "w", encoding="utf-8").write("\\relax\n")
+        args = (log, "--aux", aux, "--abstract-label", "abstract:end", "--min-pages", "40", "--max-body-pages", "20")
+        code, out, err = run("latex_gate.py", *args)
+        assert code == 1 and "abstract:end" in out + err, "缺摘要标签不能静默通过"
+
+        io.open(aux, "w", encoding="utf-8").write("\\newlabel{abstract:end}{{}{2}}\n")
+        code, out, err = run("latex_gate.py", *args)
+        assert code == 1 and "摘要页数" in out + err, "摘要标签页与开题配置不一致未被阻断"
+
+        io.open(aux, "w", encoding="utf-8").write("\\newlabel{abstract:end}{{}{1}}\n")
+        code, out, err = run("latex_gate.py", *args)
+        assert code == 0, out + err
+
+    template = read_repo("assets/paper/0.摘要.tex")
+    body = re.sub(r"(?m)^%.*$", "", template)
+    assert "\\label{abstract:end}" in body, "abstract:end 不能只留在注释里"
+
+
+def test_specialized_probability_gates_record_quantified_not_applicable_reasons():
+    """非随机几何题必须显式 N/A，而非冒充通用门禁或静默跳过。"""
+    with tempfile.TemporaryDirectory() as tmp:
+        reason = "确定性线性规划：0 个随机个体，0 次 Bernoulli 试验"
+        degenerate_report = os.path.join(tmp, "degenerate.json")
+        code, out, err = run("degenerate.py", "--not-applicable", reason, "--out", degenerate_report)
+        assert code == 0 and "N/A" in out + err, out + err
+        record = json.load(io.open(degenerate_report, encoding="utf-8"))
+        assert record["verdict"] == "N/A" and record["reason"] == reason
+
+        sample_report = os.path.join(tmp, "sample.json")
+        code, out, err = run("sample_gate.py", "--not-applicable", reason, "--report", sample_report)
+        assert code == 0 and "N/A" in out + err, out + err
+        record = json.load(io.open(sample_report, encoding="utf-8"))
+        assert record["verdict"] == "N/A" and record["reason"] == reason
+
+        for script, out_flag, report in (
+            ("degenerate.py", "--out", degenerate_report),
+            ("sample_gate.py", "--report", sample_report),
+        ):
+            code, _, _ = run(script, "--not-applicable", "", out_flag, report)
+            assert code == 2, f"{script} 的空 N/A 理由必须是用法错误"
+            code, _, _ = run(script, "--not-applicable", "不适用", out_flag, report)
+            assert code == 2, f"{script} 的 N/A 理由必须量化"
+
+    workflow = read_repo("workflows/solve-full.md")
+    assert "题型/方法家族" in workflow and "N/A + 定量理由" in workflow
+    assert "禁止手搓教科书算法" not in workflow
+    assert "优先用有维护" in workflow and "自研要在 `选型.md` 写明理由" in workflow
+
+
+def test_refs_check_extracts_titles_from_standard_bibitem_and_workflows_use_real_template():
+    """手写 thebibliography 也要能标题比对，工作流不能指向不存在的 bib。"""
+    if SCRIPTS not in sys.path:
+        sys.path.insert(0, SCRIPTS)
+    refs_check = importlib.import_module("refs_check")
+    with tempfile.TemporaryDirectory() as tmp:
+        tex = os.path.join(tmp, "9.参考文献.tex")
+        io.open(tex, "w", encoding="utf-8").write(
+            "\\begin{thebibliography}{9}\n"
+            "\\bibitem{demo} A. Author.\\newblock A Verifiable Reference Title.\\newblock "
+            "Journal of Tests, 2024. doi:10.1234/example.2024.1\n"
+            "\\end{thebibliography}\n"
+        )
+        entries = refs_check.parse_entries(tex)
+        assert entries[0][2] == "A Verifiable Reference Title", entries
+
+    for rel in ("workflows/solve-full.md", "workflows/paper-only.md"):
+        text = read_repo(rel)
+        assert "scripts/refs_check.py 论文/refs.bib" not in text, rel + " 仍把不存在的 refs.bib 当执行路径"
+        assert "9.参考文献.tex" in text, rel + " 未说明模板的实际参考文献文件"
+
+
+def test_no_stale_cross_references_or_dead_paths():
+    """跨文件引用会静默过期：表号改了、文件改名了，读者无从察觉。"""
+    import re
+
+    workflow = read_repo("workflows/solve-full.md")
+    critic = re.search(r"^##\s+Critic\b(.*?)(?=^##\s)",
+                       read_repo("references/roles.md"), re.S | re.M).group(1)
+    last = max(int(n) for n in re.findall(r"^\|\s*R(\d+)\s*\|", critic, re.M))
+    assert "R1–R%d" % last in workflow or "R1-R%d" % last in workflow, \
+        "solve-full 引用的 Critic 表号已过期：实际到 R%d" % last
+
+    # 参考文献命令必须指向模板里真实存在的文件
+    for rel in ("workflows/solve-full.md", "workflows/paper-only.md"):
+        text = read_repo(rel)
+        for ref in re.findall(r"refs_check\.py\s+(\S+)", text):
+            name = ref.split("/")[-1]
+            assert os.path.isfile(os.path.join(ROOT, "assets", "paper", name)), \
+                "%s 让 refs_check 读 %s，但 assets/paper/ 里没有这个文件" % (rel, name)
+
+
+def test_attribution_does_not_claim_imported_assets_as_original():
+    """原创清单不能把引自上游的 assets/paper 也算进去——同一文件两种来源自相矛盾。"""
+    import re
+
+    text = read_repo("ATTRIBUTION.md")
+    block = re.search(r"^##\s+原创部分.*?$(.*?)(?=^##\s|\Z)", text, re.S | re.M)
+    assert block, "ATTRIBUTION 缺原创部分小节"
+    claims = [line for line in block.group(1).split(chr(10))
+              if "assets/paper" in line
+              and "不在原创" not in line and "引自" not in line]
+    assert not claims, ("assets/paper 引自 Mrite，不能同时被列为原创：" + chr(10)
+                        + chr(10).join(claims))
+
+
+def test_spec_gate_is_split_so_it_does_not_forbid_its_own_output():
+    """P-1 不能一边要求写主路线、一边禁止定方法路线——必须拆成两关。"""
+    text = read_repo("workflows/solve-full.md")
+    assert "P-1a" in text and "P-1b" in text, \
+        "P-1 未拆关：写建模详要（含主路线）与「禁止定方法路线」写在同一关里，逻辑打架"
 
 
 if __name__ == "__main__":

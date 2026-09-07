@@ -28,6 +28,7 @@ BLOCKING_PATTERNS = [
     (r"Citation `([^']+)' on page \d+ undefined", "未定义引文"),
     (r"There were undefined (?:references|citations)", "存在未定义引用/引文（汇总行）"),
     (r"File `([^']+)' not found", "缺文件"),
+    (r"\[NUMBERS-MISSING\]", "数字宏未注入：先跑 ledger.py --emit-tex 生成 numbers.tex"),
     (r"Missing character", "缺字形（字体未覆盖该字符）"),
     (r"Float too large", "浮动体过大"),
     (r"Overfull \\hbox \(([\d.]+)pt too wide\)", "Overfull hbox"),
@@ -102,7 +103,7 @@ def load_whitelist(path):
 
 
 def bib_missing(tex_path):
-    """参考文献节存在性(M5/mmflow 实测:交付物可以整篇没有参考文献)。
+    """参考文献节存在性(实测:交付物可以整篇没有参考文献)。
 
     沿 \\input/\\include 递归收集源文本,查
     \\bibliography / \\thebibliography / 参考文献 任一出现即算有。
@@ -167,10 +168,12 @@ def main(argv=None):
                          "仅在给了 --appendix-label 时生效。")
     ap.add_argument("--tex", default=None,
                     help="主 tex 源路径。给了就做结构检查：参考文献节存在性"
-                         "（mmflow 实测：整篇交付可以零参考文献）。")
+                         "（实测：整篇交付可以零参考文献）。")
     a = ap.parse_args(argv)
     a.min_pages = opening_config_int(a.min_pages, "总页数下限")
     a.max_body_pages = opening_config_int(a.max_body_pages, "正文页数上限")
+    a.abstract_pages = (opening_config_int(None, "摘要页数")
+                        if a.abstract_label else None)
 
     blocking, nonblocking, pages = parse_log(a.log)
     pages_src = "log"
@@ -186,7 +189,7 @@ def main(argv=None):
         if bib_missing(a.tex):
             blocking.append({"line": 0, "kind": "no-bib",
                              "text": "全文无参考文献节——赛制硬要求"
-                                     "（mmflow 实测：整篇交付零参考文献）"})
+                                     "（实测：整篇交付零参考文献）"})
     wl = load_whitelist(a.whitelist)
 
     # ---- 体量地板：写成散文的「要丰富」无效，只有退出码算数 ----
@@ -212,9 +215,24 @@ def main(argv=None):
         elif body_pages - 1 > a.max_body_pages:
             volume.append(f"正文 {body_pages - 1} 页 > 上限 {a.max_body_pages}："
                           "超出竞赛格式规范，把明细表/长推导移进附录")
+    if a.abstract_label:
+        abstract_page = aux.get("labels", {}).get(a.abstract_label)
+        if abstract_page is None:
+            volume.append(f"给了 --abstract-label {a.abstract_label} 但 .aux 里找不到该 label，"
+                          "摘要页数未核实")
+        else:
+            try:
+                abstract_page_number = int(str(abstract_page).strip())
+            except ValueError:
+                volume.append(f"摘要 label {a.abstract_label} 的页码无效：{abstract_page!r}")
+            else:
+                if abstract_page_number != a.abstract_pages:
+                    volume.append(f"摘要页数 {abstract_page_number} != 开题.md 声明的 "
+                                  f"{a.abstract_pages}（label {a.abstract_label}）")
     blocking = blocking + [{"line": 0, "kind": "volume", "text": m} for m in volume]
     res = {"log": a.log, "pages": pages, "body_pages": body_pages,
            "min_pages": a.min_pages, "max_body_pages": a.max_body_pages,
+           "abstract_pages": a.abstract_pages,
            "n_blocking": len(blocking), "n_nonblocking": len(nonblocking),
            "blocking": blocking, "nonblocking": nonblocking[:80],
            "whitelist_entries": len(wl), "aux": aux,

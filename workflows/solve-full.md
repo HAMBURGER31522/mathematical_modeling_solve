@@ -10,26 +10,38 @@
 
 ---
 
-## P-1 规格（Coordinator）——未过关不得进入 P0 之后的任何阶段
+## P-1a 规格关（Coordinator）——PRD 未过关，禁止定方法路线
 
 1. 读赛题、附件、格式规范；建 Task Anchor：Goal / Boundaries / Done When。
-2. 运行 `python scripts/openconf.py`，确认赛事参数、模板与样例目录都读得到。
+2. 运行 `python scripts/openconf.py`，确认赛事参数、模板与样例目录都读得到；
+   缺项或占位符会直接报错——**没填就是没填，不给兜底默认值**。
 3. 写 **PRD**（`结果/PRD.md`）：目标、边界、完成标准、已知事实与待定项。
    逐条问、一次只问一个；**能在题面与附件里查到的，先查，不要拿去问人**。
 4. **打磨关**：把 PRD 逐条追问一遍——每条完成标准都要能回答「怎么算过？谁来判？用什么命令判？」
    答不上来的条目不许留在 PRD 里。
-5. 写 **建模详要** `结果/建模详要.md`——**逐问一节**，每问十项：题型判定、形式化三要素、
+
+> **本关未过之前，禁止**：定方法路线、写建模详要、动任何代码、跑任何计算。
+> 「要解决什么」没定死就去想「怎么解」，等于让方案反过来定义问题。
+
+**交出**：PRD + 题面分析。
+
+## P-1b 建模详要（Coordinator）——本关未过，禁止进入 P0 之后的任何阶段
+
+P-1a 通过之后才开始。**这一关的产物就是方法路线本身**，所以它不受上一关的禁令约束；
+但它同样不许动代码、不许跑计算。
+
+1. 写 `结果/建模详要.md`——**逐问一节**，每问十项：题型判定、形式化三要素、
    主路线、独立核验路线、承重假设、口径、证书预告、分辨率、数据接口、已知失败模式。
    规格与「必须写到什么程度」见 `references/roles.md` 的建模详要一节。
    **这是下游唯一的执行依据**：写薄了，执行方只能自己重新推导，
    两方各建各的模型，对抗性审查就变成了两套方案互相比较，而不是审查。
-6. `python scripts/design_gate.py 结果/建模详要.md --out 结果/gates/G-1-建模详要.md`
-   ——逐问十项齐全，且每项有实质内容（只有标题按缺项处理）。退出码必须为 0。
+2. `python scripts/design_gate.py 结果/建模详要.md --out 结果/gates/G-1-建模详要.md`
+   ——逐问十项齐全、每项有实质内容，且不得是「待补充／视情况而定」这类空洞措辞。
+   退出码必须为 0。
 
-> **本关未过之前，禁止**：定方法路线、写实现文档、动任何代码、跑任何计算。
-> 规格没写死就开工，等于让「怎么算通过」由结果反向决定——这正是 SDD 要挡的。
+> **本关未过之前，禁止**：动任何代码、跑任何计算、进入 P0 之后的任何阶段。
 
-**交出**：PRD + **建模详要** + 题面分析。下游拿到的是这三样，不是一句口头描述。
+**交出**：建模详要。连同 P-1a 的 PRD 与题面分析一并交给下游——**这三样，不是一句口头描述**。
 
 ## P0 读题与体检（Coder，Coordinator 验收）
 
@@ -65,7 +77,8 @@
 4. 查方法卡拿候选：`python scripts/method_query.py "<题意关键词>" --top 6`。
    返回的 `failure_modes` 进拆问卡⑦，`validation` 进拆问卡⑧。**高分方法可以拒绝，但要在
    `选型.md` 写明为什么不合适**；零命中也是有效信息，按自研处理并记一行。
-5. `选型.md` 每问写一行实现来源：库与 commit ／ 自研理由 ／ N/A。禁止手搓教科书算法。
+5. `选型.md` 每问写一行实现来源：库与 commit ／ 自研理由 ／ N/A。优先用有维护、
+   有许可证、可钉版本的实现；自研要在 `选型.md` 写明理由。
 6. 机时必须用**真实内核实测**后外推，复杂度符号不能替代计时
    （`references/gotchas.md#measured-runtime-beats-estimates`）。超配额就先提速再开跑。
 7. Pilot：每问 2–3 个候选**外加一个简单 baseline**，同数据划分、同指标、同时间预算真跑。
@@ -84,20 +97,37 @@
 建立 ground truth、向上推导，以及 Complexity／Analogy／Legacy 三类陷阱的检查动作），
 用 `first-principles-thinking`（若已安装）或按其六阶段自行展开，不要在本流程里重述。
 
-本角色的完整审查维度见 `references/roles.md` 的 Critic 表（R1–R8）。
+本角色的完整审查维度见 `references/roles.md` 的 Critic 表（R1–R10）。
 
 作者复核自己的实现，看到的是「我以为我写了什么」。这一步的全部价值在于**没参与**。
 发现的疏漏同步给 Coder，改完重跑受影响的门禁，不是口头确认。
 
 ## P3 实现与计算（Coder）
 
+**按题型/方法家族分派门禁**
+
+所有题目仍要跑适用的 `test_inventory.py`、`ledger.py`、`figqa.py`、`audit_numbers.py`、
+`pkg_scan.py`；长批仍由 `batch_gate.py` 审查，随机答案仍按适用性使用 `seed_gate.py`。
+下表只避免把随机几何/伯努利专用检验伪装成通用要求。
+
+| 题型/方法家族 | 必跑门禁 | 不适用时怎么办 |
+|---|---|---|
+| 随机几何、渗流或以 `conducts(n, threshold, seed)` 判定的模型 | `degenerate.py`；若结论由 iid Bernoulli 样本支持，再跑 `sample_gate.py`、`certify.py`、`seed_gate.py` | 不适用情形必须在 Gate 记录写 `N/A + 定量理由`，不能静默跳过。 |
+| iid Bernoulli 机会约束，但没有上述几何导通原语 | `sample_gate.py`、`certify.py`、`seed_gate.py` | 对 `degenerate.py` 运行 `--not-applicable "无 conducts 原语：0 个几何个体"` 并保存记录。 |
+| 回归、分类、预测、评价 | Pilot、独立测试、数据划分/指标审计、ledger；必要时按该方法的统计检验 | 对两道专用门禁各运行 `--not-applicable "回归评价：0 次 Bernoulli 试验"` 并保存记录。 |
+| 确定性规划、网络优化、解析模型 | 独立神谕/对偶或解析证据、测试、ledger；长批时再跑 `batch_gate.py` | 对两道专用门禁各运行 `--not-applicable "确定性求解：0 个随机个体，0 次 Bernoulli 试验"` 并保存记录。 |
+
+`--not-applicable` 的理由为空或没有定量信息即退出 2；带合格理由时输出 N/A 记录并退出 0。
+
 **实现与测试**
 
 1. 核心原语与判据实现在 `求解/core/`，各问一律 import，禁止逐问复制。
 2. 先写独立神谕测试再进生产：expected 只来自手算、解析解或独立实现。
 3. `python scripts/test_inventory.py --tests-dir 求解/tests --report 结果/gates/G3-tests.json`
-4. `python scripts/degenerate.py --fn <模块:函数> --threshold <题面阈值> --n-probe <题面档位>`
-   ——退化端点必须符合物理期望且对阈值敏感。
+4. 对表中适用的随机几何模型运行
+   `python scripts/degenerate.py --fn <模块:函数> --threshold <题面阈值> --n-probe <题面档位>`
+   ——退化端点必须符合物理期望且对阈值敏感；不适用时运行
+   `python scripts/degenerate.py --not-applicable "<定量理由>" --out 结果/gates/G3-degenerate.json`。
 
 **长批执行**
 
@@ -112,7 +142,9 @@
    三态判定与下界、n、seed 写进 ledger 的 `certificate`；其他方法家族改走该家族对应证书并写明。
 9. 区间跨过阈值只能称**证据不足**，不得改称不可行、也不得直接改报更保守的答案
    （`references/gotchas.md#inconclusive-is-not-failure`）。
-10. `python scripts/sample_gate.py --scenarios 结果/sample-scenarios.json --report 结果/gates/G3-samples.json`
+10. 对表中适用的 iid Bernoulli 结论运行
+    `python scripts/sample_gate.py --scenarios 结果/sample-scenarios.json --report 结果/gates/G3-samples.json`；
+    不适用时运行 `python scripts/sample_gate.py --not-applicable "<定量理由>" --report 结果/gates/G3-samples.json`。
 11. 临界／阈值／最优档位答案必须多种子复核：≥2 个独立种子族各覆盖答案点与相邻档。
     `python scripts/seed_gate.py 结果/多种子.json --out 结果/gates/G3-seed.md`
     退出码非 0 即答案未分辨，写 `certificate.resolved=false` 并降档报告
@@ -168,7 +200,12 @@
 
 **审计**
 
-9. `python scripts/refs_check.py 论文/refs.bib --out 结果/参考文献核验.md`，退出码必须为 0。
+9. 模板尚未装配时运行
+   `python scripts/refs_check.py assets/paper/9.参考文献.tex --out 结果/参考文献核验.md`；
+   装配到交付目录后运行
+   `python scripts/refs_check.py 论文/9.参考文献.tex --out 结果/参考文献核验.md`，退出码必须为 0。
+   `.tex` 只有标准 `\bibitem` 的 `\newblock` 标题格式才会做标题比对；使用 BibTeX 时把参数改为
+   实际存在的 `.bib` 文件，不能凭空写 `论文/refs.bib`。
 10. `python scripts/audit_numbers.py --ledger 结果/results_ledger.json --numbers 论文/numbers.tex --tex 论文/*.tex --out 结果/审计报告.md`
 11. 答案唯一性：每问最终答案在摘要、正文、图表、结论里是同一个数。
 

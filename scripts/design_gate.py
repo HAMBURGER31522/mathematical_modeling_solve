@@ -36,6 +36,33 @@ SECTIONS = (
     "已知失败模式",
 )
 
+# Keep policy inputs visible and easy to extend as new boilerplate patterns appear.
+DEFAULT_MIN_CHARS = 15
+HOLLOW_PHRASES = (
+    "待补充", "稍后补充", "后续补充", "待定", "TBD", "暂无", "视情况而定",
+    "有待讨论", "另行确定", "将在后续",
+)
+METHOD_NAMES = (
+    "线性回归", "逻辑回归", "最小二乘", "随机森林", "支持向量机", "SVM",
+    "蒙特卡洛", "动态规划", "整数规划", "线性规划", "非线性规划", "聚类",
+    "主成分分析", "PCA", "ARIMA", "灰色预测", "时间序列", "AHP", "TOPSIS",
+    "遗传算法", "模拟退火", "神经网络", "贝叶斯", "图论", "网络流",
+    "K-means", "KNN", "linear regression", "random forest", "baseline",
+)
+SPECIFIC_REFERENCE = re.compile(
+    r"(?:第\s*\d+\s*(?:页|章|节|段)|(?:图|表|式)\s*\d+|"
+    r"[\w./\\-]+\.(?:py|json|csv|xlsx|tex|md))",
+    re.I,
+)
+CONCRETE_OBJECT = re.compile(
+    r"(?:\d+(?:\.\d+)?(?:%|h|s|ms)?|"
+    r"(?:第\s*\d+\s*(?:页|章|节|段)|(?:图|表|式|单元格)\s*\d+)|"
+    r"[\w./\\-]+\.(?:py|json|csv|xlsx|tex|md)|"
+    r"(?:python|latexmk|rg)\s+[^\n]+|"
+    r"\$[^$]+\$|\\[A-Za-z]+|[A-Za-zα-ωΑ-Ω]\s*(?:=|≤|≥|<|>) )",
+    re.I,
+)
+
 QUESTION = re.compile(r"^##\s+(问题\S*|Q\d+\S*)\s*$", re.M)
 SUB = re.compile(r"^###\s+(.+?)\s*$", re.M)
 
@@ -56,6 +83,24 @@ def substance(block):
     body = re.sub(r"^[\s>*\-+|]+$", "", body, flags=re.M)
     body = re.sub(r"[\s>*\-+|·。，、；：]", "", body)
     return len(body)
+
+
+def hollow_phrase(block):
+    """Return the boilerplate phrase that makes a section empty, if any."""
+    for phrase in HOLLOW_PHRASES:
+        if phrase.casefold() in block.casefold():
+            return phrase
+    if "参见上文" in block and not SPECIFIC_REFERENCE.search(block):
+        return "参见上文（无具体指向）"
+    return None
+
+
+def has_concrete_object(block):
+    """A section needs an inspectable number, locator, artifact, formula, or method."""
+    if CONCRETE_OBJECT.search(block):
+        return True
+    folded = block.casefold()
+    return any(name.casefold() in folded for name in METHOD_NAMES)
 
 
 def audit(text, min_chars):
@@ -84,6 +129,18 @@ def audit(text, min_chars):
                 problems.append("%s 的「%s」只有标题没有实质内容（%d 字符）"
                                 "——看起来齐全就是这么来的" % (title, name, n))
                 rows.append((title, name, "空节", n))
+                continue
+            phrase = hollow_phrase(found[match])
+            if phrase:
+                problems.append("%s 的「%s」命中空洞措辞「%s」——请写可执行的事实与依据"
+                                % (title, name, phrase))
+                rows.append((title, name, "空洞措辞", n))
+                continue
+            if not has_concrete_object(found[match]):
+                problems.append("%s 的「%s」没有可指认的具体物——至少给出数字、题面 locator、"
+                                "文件路径、命令、公式符号或明确的方法名"
+                                % (title, name))
+                rows.append((title, name, "无具体物", n))
             else:
                 rows.append((title, name, "OK", n))
     return problems, rows
@@ -93,7 +150,7 @@ def main():
     ap = argparse.ArgumentParser(description="建模详要完备性门禁")
     ap.add_argument("design", help="结果/建模详要.md")
     ap.add_argument("--out", default="结果/gates/G-1-建模详要.md")
-    ap.add_argument("--min-chars", type=int, default=15,
+    ap.add_argument("--min-chars", type=int, default=DEFAULT_MIN_CHARS,
                     help="每项的最小实义字符数，低于此按空节处理")
     a = ap.parse_args()
 

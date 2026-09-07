@@ -116,7 +116,7 @@ assets/paper/   论文形态契约（cumcmthesis 分节模板，每节带写作�
 | P7 打包 | `pkg_scan.py` | 已判「合规全 PASS」的交付包里写着真实口令，差一步推上公开仓库 |
 | 维护 | `skill_smoke.py` | skill 自己的自检：行数预算、占位符残留、路由断链、薄壳承重结构、引用锚点 |
 
-`scripts/tests/test_contracts.py` 把每个脚本承诺的行为钉成断言，当前 **65 项全过**。
+`scripts/tests/test_contracts.py` 把每个脚本承诺的行为钉成断言，当前 **75 项全过**。
 **契约测试不过时，"官方脚本不可替代"这句话就是虚假确定性。**
 
 ### 全程产物
@@ -261,13 +261,13 @@ Codex 侧读根目录的 `CODEX.md`。两份薄壳把路由表内联进去，**�
 
 ```yaml
 赛事: 高教社杯全国大学生数学建模竞赛
-正文页数上限: 20          # → latex_gate.py --max-body-pages
-总页数下限: 40            # → latex_gate.py --min-pages
-图总数下限: 12            # → figqa.py --min-figures
-正文引用图下限: 8         # → figqa.py --min-body-figures
+正文页数上限: <必填:正文页数上限；例：20>  # → latex_gate.py --max-body-pages
+总页数下限: <必填:总页数下限；例：40>      # → latex_gate.py --min-pages
+图总数下限: <必填:图总数下限；例：12>      # → figqa.py --min-figures
+正文引用图下限: <必填:正文引用图下限；例：8> # → figqa.py --min-body-figures
 摘要页数: 1
 论文模板: 官方 class 优先；无官方模板时用 assets/paper/format.cls
-目标图样例目录: <你自己的期刊图样例目录>
+目标图样例目录: <必填:含可读图片的期刊图样例目录绝对路径>
 总时限: 72h
 主计算机时上限: 20h
 本机核数: 32

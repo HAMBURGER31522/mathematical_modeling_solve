@@ -9,7 +9,9 @@
     python scripts/refs_check.py 论文/10.参考文献.tex --out 结果/参考文献核验.md
 
 退出码：0 = 全部可核验；1 = 存在查无此文或标题不符的条目；2 = 用法/网络错误。
-无网络时用 --offline 只做结构检查（缺 DOI 的条目照样记 FAIL），退出码语义不变。
+无网络时用 --offline 只做结构检查（缺 DOI 的条目照样记 FAIL）；SKIP 不是通过。
+`.tex` 仅从标准 `\newblock <标题>.\newblock` 结构提取标题；其他手写格式会保留
+空标题，仍核 DOI 存在性但无法做标题比对。
 纯标准库。
 """
 import argparse
@@ -50,8 +52,20 @@ def parse_entries(path):
         for item in re.findall(r"\\bibitem(?:\[[^\]]*\])?\{[^}]*\}(.+?)(?=\\bibitem|\\end\{thebibliography\}|\Z)",
                                raw, re.S):
             doi = DOI_RE.search(item)
-            entries.append((" ".join(item.split())[:80], doi.group(0) if doi else "", ""))
+            entries.append((" ".join(item.split())[:80], doi.group(0) if doi else "", _tex_bibitem_title(item)))
     return entries
+
+
+def _tex_bibitem_title(item):
+    """Extract the title from the common ``author\newblock title\newblock`` layout."""
+    blocks = re.split(r"\\newblock\b", item, maxsplit=2)
+    if len(blocks) < 2:
+        return ""
+    title = blocks[1].strip()
+    title = re.sub(r"\\(?:emph|textit|textbf|textrm)\{([^{}]*)\}", r"\1", title)
+    title = re.sub(r"\s+", " ", title).strip().strip("{} ")
+    title = re.split(r"(?<=[.!?])\s|\s+doi\s*:", title, maxsplit=1, flags=re.I)[0]
+    return title.rstrip(".。 ")
 
 
 def query(doi, timeout):
