@@ -37,8 +37,10 @@ def parse_entries(path):
     raw = open(path, encoding="utf-8", errors="replace").read()
     entries = []
     if path.lower().endswith(".bib"):
-        for block in re.split(r"\n@", raw)[1:] if raw.lstrip().startswith("@") else re.split(r"\n@", raw):
-            if not block.strip():
+        # 按行首的 @ 切条目。旧写法在文件以 @ 开头时会把唯一一片当成前导内容丢掉，
+        # 结果任何正常 .bib 都解析出 0 条 —— 契约测试抓到的第一个真 bug。
+        for block in re.split(r"(?m)^@", raw):
+            if not block.strip() or "{" not in block:
                 continue
             doi = DOI_RE.search(block)
             title = re.search(r"title\s*=\s*[{\"]+(.+?)[}\"]+\s*,", block, re.S | re.I)

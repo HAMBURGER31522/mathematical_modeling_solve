@@ -48,6 +48,13 @@ def split_frontmatter(text):
 
 
 def main():
+    global ROOT
+    import argparse
+    ap = argparse.ArgumentParser(description="skill 自检")
+    ap.add_argument("--root", default=ROOT, help="被检 skill 根目录（默认为本脚本上级）")
+    ROOT = os.path.abspath(ap.parse_args().root)
+    del FAILS[:], WARNS[:]
+
     # ── 1. 结构：入口文件必须存在
     skill = read("SKILL.md")
     check(skill is not None, "SKILL.md 不存在")

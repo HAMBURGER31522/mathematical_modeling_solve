@@ -634,6 +634,130 @@ def test_batch_gate_separates_resumable_from_all_or_nothing():
         assert r.returncode == 2, "空理由的豁免未被拒绝"
 
 
+def _make_skill_fixture(root, body_lines=10, routes=None, fallback=True):
+    """造一个最小合法 skill 目录，供 skill_smoke 的失败路径测试用。"""
+    os.makedirs(os.path.join(root, "workflows"), exist_ok=True)
+    os.makedirs(os.path.join(root, "references"), exist_ok=True)
+    desc = ("---" + chr(10) + "name: t" + chr(10) +
+            "description: 当用户要求" + chr(34) + "求解数学建模竞赛题" + chr(34) +
+            "或" + chr(34) + "写数模论文" + chr(34) +
+            "时使用，覆盖读题到论文的端到端交付，包含数据体检与门禁。" + chr(10) +
+            "---" + chr(10))
+    body = "# t" + chr(10) + "## Known Gotchas" + chr(10) + ("x" + chr(10)) * body_lines
+    io.open(os.path.join(root, "SKILL.md"), "w", encoding="utf-8").write(desc + body)
+    routes = routes if routes is not None else ["solve"]
+    lines = ["tasks:"]
+    for r in routes:
+        lines += ["  - id: " + r, "    workflow: workflows/" + r + ".md"]
+        io.open(os.path.join(root, "workflows", r + ".md"), "w", encoding="utf-8").write("x")
+    if fallback:
+        lines += ["  - id: other", "    workflow: workflows/other.md"]
+        io.open(os.path.join(root, "workflows", "other.md"), "w", encoding="utf-8").write("x")
+    io.open(os.path.join(root, "routing.yaml"), "w", encoding="utf-8").write(chr(10).join(lines))
+
+
+def test_skill_smoke_catches_forgetting_errors():
+    """自检脚本必须能判死超预算、断链路由和缺兜底；本仓自身必须是绿的。"""
+    gate = os.path.join(ROOT, "scripts", "skill_smoke.py")
+    r = subprocess.run([PY, gate, "--root", ROOT], capture_output=True, env=ENV)
+    assert r.returncode == 0, r.stdout.decode("utf-8", "replace")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        ok = os.path.join(tmp, "ok")
+        _make_skill_fixture(ok)
+        r = subprocess.run([PY, gate, "--root", ok], capture_output=True, env=ENV)
+        assert r.returncode == 0, r.stdout.decode("utf-8", "replace")
+
+        fat = os.path.join(tmp, "fat")
+        _make_skill_fixture(fat, body_lines=200)
+        r = subprocess.run([PY, gate, "--root", fat], capture_output=True, env=ENV)
+        assert r.returncode == 1, "SKILL.md 正文超 90 行未被判死"
+
+        nofall = os.path.join(tmp, "nofall")
+        _make_skill_fixture(nofall, fallback=False)
+        r = subprocess.run([PY, gate, "--root", nofall], capture_output=True, env=ENV)
+        assert r.returncode == 1, "缺 other 兜底行未被判死"
+
+        broken = os.path.join(tmp, "broken")
+        _make_skill_fixture(broken)
+        io.open(os.path.join(broken, "routing.yaml"), "a", encoding="utf-8").write(
+            chr(10) + "  - id: ghost" + chr(10) + "    workflow: workflows/ghost.md" + chr(10))
+        r = subprocess.run([PY, gate, "--root", broken], capture_output=True, env=ENV)
+        assert r.returncode == 1, "routing 指向不存在的 workflow 未被判死"
+
+        empty = os.path.join(tmp, "empty")
+        os.makedirs(empty)
+        r = subprocess.run([PY, gate, "--root", empty], capture_output=True, env=ENV)
+        assert r.returncode == 1, "缺 SKILL.md 未被判死"
+
+
+def test_refs_check_rejects_unverifiable_citations():
+    """无 DOI、空条目一律记 fail；离线只做结构检查；文件不存在是用法错误。"""
+    gate = os.path.join(ROOT, "scripts", "refs_check.py")
+    with tempfile.TemporaryDirectory() as tmp:
+        out = os.path.join(tmp, "r.md")
+
+        nodoi = os.path.join(tmp, "nodoi.bib")
+        io.open(nodoi, "w", encoding="utf-8").write(
+            "@article{a," + chr(10) + "  title = {Some Paper}," + chr(10) +
+            "  year = {2024}" + chr(10) + "}" + chr(10))
+        r = subprocess.run([PY, gate, nodoi, "--out", out, "--offline"],
+                           capture_output=True, env=ENV)
+        assert r.returncode == 1, "无 DOI 的条目未被判 FAIL"
+
+        withdoi = os.path.join(tmp, "ok.bib")
+        io.open(withdoi, "w", encoding="utf-8").write(
+            "@article{b," + chr(10) + "  title = {Some Paper}," + chr(10) +
+            "  doi = {10.1038/s41586-024-07780-8}" + chr(10) + "}" + chr(10))
+        r = subprocess.run([PY, gate, withdoi, "--out", out, "--offline"],
+                           capture_output=True, env=ENV)
+        assert r.returncode == 0, r.stdout.decode("utf-8", "replace")
+
+        blank = os.path.join(tmp, "blank.bib")
+        io.open(blank, "w", encoding="utf-8").write("")
+        r = subprocess.run([PY, gate, blank, "--out", out, "--offline"],
+                           capture_output=True, env=ENV)
+        assert r.returncode == 1, "空条目未记 fail（不得因没发现问题而通过）"
+
+        r = subprocess.run([PY, gate, os.path.join(tmp, "ghost.bib"), "--out", out],
+                           capture_output=True, env=ENV)
+        assert r.returncode == 2, "文件不存在应判用法错误"
+
+
+
+def test_seed_gate_catches_answer_drift_across_seed_families():
+    """答案随独立种子族漂移即为未分辨；单族、缺相邻档同样判死。"""
+    gate = os.path.join(ROOT, "scripts", "seed_gate.py")
+
+    def spec(fams):
+        return {"question": "Q", "answer": 615, "direction": "min",
+                "threshold": 0.90, "alpha": 0.05, "families": fams}
+
+    stable = {str(f): {"614": {"k": 17950 + f, "n": 20000},
+                       "615": {"k": 18150 + f, "n": 20000}} for f in (1, 2, 3)}
+    drift = dict(stable)
+    drift["1"] = {"614": {"k": 18200, "n": 20000}, "615": {"k": 18260, "n": 20000}}
+
+    with tempfile.TemporaryDirectory() as tmp:
+        out = os.path.join(tmp, "g.md")
+
+        def run(payload):
+            path = os.path.join(tmp, "s.json")
+            io.open(path, "w", encoding="utf-8").write(json.dumps(payload, ensure_ascii=False))
+            return subprocess.run([PY, gate, path, "--out", out],
+                                  capture_output=True, env=ENV).returncode
+
+        assert run(spec(stable)) == 0, "三族一致却未判 PASS"
+        assert run(spec(drift)) == 1, "某族答案漂移未被判死"
+        assert run(spec({"1": stable["1"]})) == 1, "单种子族未被判死"
+        assert run(spec({str(f): {"615": stable[str(f)]["615"]} for f in (1, 2, 3)})) == 1,             "缺相邻档（夹逼不成立）未被判死"
+
+        bad = os.path.join(tmp, "bad.json")
+        io.open(bad, "w", encoding="utf-8").write("{}")
+        r = subprocess.run([PY, gate, bad, "--out", out], capture_output=True, env=ENV)
+        assert r.returncode == 2, "输入结构不合法应判用法错误"
+
+
 if __name__ == "__main__":
     fns = [(k, v) for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     bad = 0
