@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """冻结账本工具：结构校验、stale 传播、numbers.tex 宏生成。
 
-schema 见 references/computation-standards.md §7。只依赖标准库。
+schema 见本文件 docstring 与 workflows/solve-full.md P3。只依赖标准库。
 
 用法：
   python ledger.py --validate 结果/results_ledger.json

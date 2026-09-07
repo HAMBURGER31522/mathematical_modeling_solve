@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """LaTeX 编译门禁：把 .log 分成阻断项与非阻断项，核实页数与摘要页。
 
-对应 references/paper-latex.md「编译契约与编译链」。只依赖标准库。
+对应 assets/paper/ 各分节顶部的写作合同与 workflows/latex-fix.md。只依赖标准库。
 
 用法：
   python latex_gate.py 论文/main.log [--aux 论文/main.aux] [--whitelist 结果/编译白名单.md]

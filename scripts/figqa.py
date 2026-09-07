@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """图面自动质检 + contact sheet 导出（G5 硬项的可执行部分）。
 
-对应 references/figures-standards.md。位图检查需要 Pillow（缺失时自动降级为
+对应 references/figure-style.md 与 workflows/solve-full.md P5。位图检查需要 Pillow（缺失时自动降级为
 文件级检查并在报告里写明，不静默跳过）；矢量图（PDF/SVG）只做文件级与引用检查。
 
 用法：

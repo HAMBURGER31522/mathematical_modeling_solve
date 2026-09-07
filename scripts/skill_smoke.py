@@ -111,17 +111,24 @@ def main():
             check(os.path.isfile(os.path.join(ROOT, wf)), "routing.yaml 指向的 %s 不存在" % wf)
 
     # ── 6. 本地引用完整性：正文提到的仓内路径必须存在
-    corpus = []
-    for dirpath, _dirnames, filenames in os.walk(ROOT):
-        if ".git" in dirpath:
-            continue
+    # .md 用反引号包路径；.py/.sh 的路径散在 docstring 与注释里，两种都要查——
+    # 只查 .md 会漏掉脚本头注指向已删 reference 的情况（v3.3 迁移时真实发生过）。
+    SKILL_DIRS = r"(?:references|workflows|rules|scripts|assets)"
+    PAT_MD = re.compile("`(" + SKILL_DIRS + r"/[^`\s]+)`")
+    PAT_SRC = re.compile(r"(?<![\w/])(" + SKILL_DIRS + r"/[\w./\u4e00-\u9fff-]+\.\w+)")
+    for dirpath, dirnames, filenames in os.walk(ROOT):
+        dirnames[:] = [d for d in dirnames
+                       if d not in (".git", "__pycache__", "fonts", "tests")]
         for name in filenames:
-            if name.endswith(".md"):
-                rel = os.path.relpath(os.path.join(dirpath, name), ROOT).replace("\\", "/")
-                corpus.append((rel, read(rel) or ""))
-    for rel, text in corpus:
-        for ref in set(re.findall(r"`((?:references|workflows|rules|scripts|assets)/[^`\s]+)`", text)):
-            check(os.path.exists(os.path.join(ROOT, ref)), "%s 引用了不存在的 %s" % (rel, ref))
+            ext = os.path.splitext(name)[1]
+            if ext not in (".md", ".py", ".sh", ".yaml"):
+                continue
+            rel = os.path.relpath(os.path.join(dirpath, name), ROOT).replace("\\", "/")
+            text = read(rel) or ""
+            pat = PAT_MD if ext == ".md" else PAT_SRC
+            for ref in set(pat.findall(text)):
+                check(os.path.exists(os.path.join(ROOT, ref)),
+                      "%s 引用了不存在的 %s" % (rel, ref))
 
     # ── 7. 激活优于存储：坑点必须出现在任务路径上，不能只躺在 references
     check("gotchas" in skill.lower() or "Gotchas" in skill,

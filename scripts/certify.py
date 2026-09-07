@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """机会约束统计证书：单侧下界、达标判定、样本量反解。只依赖标准库。
 
-对应 references/algorithm-redlines.md R2/R5 与 computation-standards §5。
+对应 rules/modeling-redlines.md R2/R5 与 workflows/solve-full.md P3。
 Wilson/Clopper-Pearson 均只适用于 iid Bernoulli；加权/相关/序贯场景须另给覆盖率依据。
 
 用法：

@@ -28,5 +28,5 @@
 
 ## 可选运行时依赖（不合入本仓库，运行期按路径/克隆调用）
 
-- [figure-forge](https://github.com/HAMBURGER31522/create_image_fukinggood)（MIT，用户自有作图库）：P5 出图的候选实现层——期刊级 recipe 模板、论点合同、硬拒绝清单、run_qa 出图自检。当前按 A/B 对比协议与内置生成规范并行评估，升格为默认的条件见 references/figures-standards.md 首节；不可用时全部手写，功能不受阻断。
+- ~~figure-forge~~：v3.3 已移除该实现层（A/B 对比评估期属半成品），出图改为按 references/figure-style.md 看样例图模仿，数量与引用仍由 figqa.py 判。
 - [math-model-resource-router](https://github.com/HAMBURGER31522/Mathematical_Modeling_Algorithm)（用户自有算法资源路由库）：P2 实现层选库的首选依据——90 个经审计的 GitHub 算法源（钉定 commit、入口路径、许可证据、声明缺口）。查找与降级顺序见 SKILL.md P2 节；不可用时记 N/A 照常自研，功能不受阻断。

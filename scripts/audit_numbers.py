@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """三向一致性审计：论文 tex <-> results_ledger.json <-> 磁盘结果文件。
 
-对应 references/algorithm-redlines.md R6 与 computation-standards §7。只依赖标准库。
+对应 rules/modeling-redlines.md R6 与 workflows/solve-full.md P3 的台账契约。只依赖标准库。
 
 用法：
   python audit_numbers.py --ledger 结果/results_ledger.json --numbers 论文/numbers.tex \
