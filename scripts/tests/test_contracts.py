@@ -592,6 +592,48 @@ def test_ledger_emits_certificate_metadata_macros():
         assert "seed=20260905" in tex and "已分辨" in tex
 
 
+def test_batch_gate_separates_resumable_from_all_or_nothing():
+    """一次性 pool.map 必须判 FAIL，分块+原子落盘+续跑扫描必须判 PASS。"""
+    allornothing = (
+        "from multiprocessing import Pool" + chr(10) +
+        "with Pool(14) as pool:" + chr(10) +
+        "    res = pool.map(one, jobs)" + chr(10) +
+        "open('out.csv','w').write(str(res))" + chr(10)
+    )
+    resumable = (
+        "import os, glob" + chr(10) +
+        "from multiprocessing import Pool" + chr(10) +
+        "done = set(os.listdir('chunks'))" + chr(10) +
+        "with Pool(14) as pool:" + chr(10) +
+        "    res = pool.map(one, jobs)" + chr(10) +
+        "open('t.tmp','w').write(str(res))" + chr(10) +
+        "os.replace('t.tmp', 'chunks/c1.csv')" + chr(10)
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        bad = os.path.join(tmp, "bad.py")
+        good = os.path.join(tmp, "good.py")
+        io.open(bad, "w", encoding="utf-8").write(allornothing)
+        io.open(good, "w", encoding="utf-8").write(resumable)
+        gate = os.path.join(ROOT, "scripts", "batch_gate.py")
+        out = os.path.join(tmp, "report.md")
+
+        r = subprocess.run([PY, gate, bad, "--out", out], capture_output=True, env=ENV)
+        assert r.returncode == 1, "一次性 pool.map 未被判 FAIL"
+
+        r = subprocess.run([PY, gate, good, "--out", out], capture_output=True, env=ENV)
+        assert r.returncode == 0, r.stdout.decode("utf-8", "replace")
+
+        # 空检查一律记 fail，不得因“没发现问题”而通过
+        r = subprocess.run([PY, gate, os.path.join(tmp, "nothing_*.py"), "--out", out],
+                           capture_output=True, env=ENV)
+        assert r.returncode == 1, "空匹配未记 fail"
+
+        # 豁免必须带理由
+        r = subprocess.run([PY, gate, bad, "--skip", "bad.py=", "--out", out],
+                           capture_output=True, env=ENV)
+        assert r.returncode == 2, "空理由的豁免未被拒绝"
+
+
 if __name__ == "__main__":
     fns = [(k, v) for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     bad = 0
