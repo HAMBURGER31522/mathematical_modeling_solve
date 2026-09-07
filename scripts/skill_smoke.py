@@ -37,6 +37,15 @@ def warn(cond, msg):
         WARNS.append(msg)
 
 
+def anchors_of(rel):
+    """目标文件里所有 ## 标题的 GitHub 式锚点（小写、空格转连字符、去其余标点）。"""
+    out = set()
+    for heading in re.findall(r"^#{1,6}\s+(.+?)\s*$", read(rel) or "", re.M):
+        slug = heading.lower().replace(" ", "-")
+        out.add("".join(ch for ch in slug if ch.isalnum() or ch in "-_"))
+    return out
+
+
 def split_frontmatter(text):
     """返回 (frontmatter 行数, 正文行数)。没有 frontmatter 时前者为 0。"""
     lines = text.split("\n")
@@ -163,8 +172,15 @@ def main():
             text = read(rel) or ""
             pat = PAT_MD if ext == ".md" else PAT_SRC
             for ref in set(pat.findall(text)):
-                check(os.path.exists(os.path.join(ROOT, ref)),
-                      "%s 引用了不存在的 %s" % (rel, ref))
+                target, _, fragment = ref.partition("#")
+                if not os.path.exists(os.path.join(ROOT, target)):
+                    FAILS.append("%s 引用了不存在的 %s" % (rel, target))
+                    continue
+                # 悬空锚点和失效路径一样是断链：坑点指过去却落不到条目上，
+                # Agent 走到那一步读不到东西，等于没激活。
+                if fragment:
+                    check(fragment in anchors_of(target),
+                          "%s 引用了 %s 里不存在的锚点 #%s" % (rel, target, fragment))
 
     # ── 7. 激活优于存储：坑点必须出现在任务路径上，不能只躺在 references
     check("gotchas" in skill.lower() or "Gotchas" in skill,

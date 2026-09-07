@@ -795,6 +795,60 @@ def _append(root, rel, extra):
     io.open(path, "a", encoding="utf-8").write(extra)
 
 
+def test_every_gotcha_is_reachable_from_the_task_path():
+    """激活优于存储：坑点只躺在 references/ 里不算捕获。
+
+    判据来自「如何写一个好的skill」2.5——高代价陷阱必须同时被存储与激活，
+    判断方法是「下次 Agent 走正常任务路径时，会自然读到这条经验吗」。
+    任务路径 = SKILL.md 的 Known Gotchas、rules/、workflows/。
+    """
+    import re
+
+    gotchas = read_repo("references/gotchas.md")
+    headings = re.findall(r"^##\s+(.+?)\s*$", gotchas, re.M)
+    assert headings, "gotchas.md 没有任何 ## 条目"
+
+    task_path = read_repo("SKILL.md")
+    for sub in ("rules", "workflows"):
+        base = os.path.join(ROOT, sub)
+        for name in sorted(os.listdir(base)):
+            if name.endswith(".md"):
+                task_path += read_repo(sub + "/" + name)
+
+    def anchor(text):
+        slug = text.lower().replace(" ", "-")
+        return "".join(ch for ch in slug if ch.isalnum() or ch in "-_")
+
+    orphans = [h for h in headings
+               if anchor(h) not in task_path and h not in task_path]
+    assert not orphans, "以下坑点只存不激活（任务路径上读不到）: %s" % orphans
+
+
+def test_reference_check_resolves_anchors_not_just_files():
+    """带 #锚点 的引用：文件要存在，锚点也要真的存在——悬空锚点是真实失败模式。"""
+    import shutil
+
+    gate = os.path.join(ROOT, "scripts", "skill_smoke.py")
+    with tempfile.TemporaryDirectory() as tmp:
+        good = os.path.join(tmp, "good")
+        shutil.copytree(ROOT, good, ignore=shutil.ignore_patterns(
+            ".git", "__pycache__", "fonts", "*.pyc",
+            "*.log", "*.aux", "*.pdf", "*.out", "*.toc", "*.xdv"))
+        r = subprocess.run([PY, gate, "--root", good], capture_output=True, env=ENV)
+        assert r.returncode == 0, ("真实锚点被误判为失效引用: "
+                                   + r.stdout.decode("utf-8", "replace"))
+
+        bad = os.path.join(tmp, "bad")
+        shutil.copytree(ROOT, bad, ignore=shutil.ignore_patterns(
+            ".git", "__pycache__", "fonts", "*.pyc",
+            "*.log", "*.aux", "*.pdf", "*.out", "*.toc", "*.xdv"))
+        path = os.path.join(bad, "workflows", "task-execution.md")
+        io.open(path, "a", encoding="utf-8").write(
+            chr(10) + "见 `references/gotchas.md#no-such-anchor-here`。" + chr(10))
+        r = subprocess.run([PY, gate, "--root", bad], capture_output=True, env=ENV)
+        assert r.returncode == 1, "悬空锚点未被判死"
+
+
 if __name__ == "__main__":
     fns = [(k, v) for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     bad = 0
