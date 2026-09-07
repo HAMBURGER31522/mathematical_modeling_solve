@@ -1230,6 +1230,64 @@ def test_critic_activates_stress_tests_and_anti_shallow():
     assert "证据位置" in auditor, "Auditor 的结论同样要能指到证据位置"
 
 
+DESIGN_SECTIONS = ("题型判定", "形式化三要素", "主路线", "独立核验路线",
+                   "承重假设", "口径", "证书预告", "分辨率", "数据接口", "已知失败模式")
+
+
+def test_modeling_design_is_a_document_not_a_table_row():
+    """建模详要是下游能否执行的前提——一行表格不够，必须成文并规定内容。
+
+    执行方拿不到细节就只能自己重新推导，那就变成两方各建各的模型；
+    对抗性审查也就无从谈起——它审的应当是已给出的思路，不是自己造一个。
+    """
+    doc = read_repo("references/roles.md")
+    assert "建模详要" in doc, "roles.md 未定义建模详要这份产物"
+    missing = [s for s in DESIGN_SECTIONS if s not in doc]
+    assert not missing, "建模详要缺少必备内容: %s" % missing
+
+
+def test_workflow_produces_the_modeling_design_before_execution():
+    """建模详要必须在 P-1 产出、进入实现之前完成。"""
+    text = read_repo("workflows/solve-full.md")
+    head = text.split("## P0")[0]
+    assert "建模详要" in head, "P-1 未产出建模详要"
+    assert "design_gate.py" in text, "建模详要没有门禁，等于没写"
+
+
+def test_design_gate_enforces_per_question_completeness():
+    """门禁必须逐问检查十项内容，缺项判死；空匹配同样记 fail。"""
+    gate = os.path.join(ROOT, "scripts", "design_gate.py")
+    assert os.path.isfile(gate), "缺 scripts/design_gate.py"
+
+    def make(tmp, name, body):
+        path = os.path.join(tmp, name)
+        io.open(path, "w", encoding="utf-8").write(body)
+        return path
+
+    full = "# 建模详要" + chr(10) + chr(10) + "## 问题一" + chr(10)
+    for section in DESIGN_SECTIONS:
+        full += "### " + section + chr(10) + "具体内容写在这里，足够下游据以执行。" + chr(10)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        out = os.path.join(tmp, "g.md")
+        ok = make(tmp, "ok.md", full)
+        r = subprocess.run([PY, gate, ok, "--out", out], capture_output=True, env=ENV)
+        assert r.returncode == 0, r.stdout.decode("utf-8", "replace")
+
+        thin = make(tmp, "thin.md", full.replace("### 承重假设" + chr(10), ""))
+        r = subprocess.run([PY, gate, thin, "--out", out], capture_output=True, env=ENV)
+        assert r.returncode == 1, "缺一项内容未被判死"
+
+        empty = make(tmp, "empty.md",
+                     full.replace("具体内容写在这里，足够下游据以执行。" + chr(10), "", 1))
+        r = subprocess.run([PY, gate, empty, "--out", out], capture_output=True, env=ENV)
+        assert r.returncode == 1, "有标题无内容未被判死"
+
+        none = make(tmp, "none.md", "# 建模详要" + chr(10) + "还没写。" + chr(10))
+        r = subprocess.run([PY, gate, none, "--out", out], capture_output=True, env=ENV)
+        assert r.returncode == 1, "没有任何问题小节未被判死"
+
+
 if __name__ == "__main__":
     fns = [(k, v) for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     bad = 0
