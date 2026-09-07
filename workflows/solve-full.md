@@ -61,7 +61,7 @@
 11. 临界／阈值／最优档位答案必须多种子复核：≥2 个独立种子族各覆盖答案点与相邻档。
     `python scripts/seed_gate.py 结果/多种子.json --out 结果/gates/G3-seed.md`
     退出码非 0 即答案未分辨，写 `certificate.resolved=false` 并降档报告
-    （实测：同一临界档两族满样本各判 614 与 615，见 `references/gotchas.md#seed-dependent-answers`）。
+    （实测：同一临界档三族满样本判出三个相邻但不同的档位，见 `references/gotchas.md#seed-dependent-answers`）。
 12. 关键答案双路互证，差异 ≳ Δ 必须定位原因，不取平均、不择优报喜。
 
 **入账冻结**

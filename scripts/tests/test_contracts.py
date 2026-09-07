@@ -1028,6 +1028,45 @@ def test_always_read_is_universal_only():
             len(ids), len(reads))
 
 
+def test_no_baseline_problem_specifics_leak_into_the_skill():
+    """举证可以留，基线题的答案数值与「同题」框架不能留。
+
+    泛化规则：记录的内容必须脱离当前项目上下文也能看懂。
+    「两族各判 614 与 615」对做别的题的人是噪音，还会让人以为这个 skill 是为那道题写的——
+    与 Balberg、细长胞元属同一类。正确写法是「判出相邻但不同的档位」，
+    保留「这件事真实发生过」而不带走题目。
+
+    语料标签（[多波束][定日镜场][微构体] 等 12 篇获奖论文的简称）不在禁列：
+    它们是统计结论的可核查出处，等同于引文，与「读者正在做哪道题」无关。
+    """
+    import re
+
+    numeric = re.compile(r"(?<![0-9.])(614|615|616)(?![0-9.])")
+    phrases = {
+        "同题范文": "假设读者正在做同一道题",
+        "同题基线": "同上",
+        "华数杯": "基线赛事名",
+    }
+    allow = {"references/method-cards.json"}
+    offenders = []
+    for dirpath, dirnames, filenames in os.walk(ROOT):
+        dirnames[:] = [d for d in dirnames if d not in (".git", "__pycache__", "tests", "fonts")]
+        for name in filenames:
+            if not name.endswith((".md", ".py", ".yaml", ".tex")):
+                continue
+            rel = os.path.relpath(os.path.join(dirpath, name), ROOT).replace(chr(92), "/")
+            if rel in allow:
+                continue
+            text = read_repo(rel) or ""
+            for hit in set(numeric.findall(text)):
+                offenders.append("%s 含基线答案档位 %s" % (rel, hit))
+            for token, why in phrases.items():
+                if token in text:
+                    offenders.append("%s 含 %r（%s）" % (rel, token, why))
+    assert not offenders, "基线题专有内容泄漏到通用 skill:" + chr(10) + chr(10).join(offenders)
+
+
+
 if __name__ == "__main__":
     fns = [(k, v) for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     bad = 0

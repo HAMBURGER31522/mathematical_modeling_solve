@@ -99,7 +99,7 @@ def validate(led: dict, warnings: list = None) -> list:
             problems.append(f"{where} source 必须是对象")
         # 语义主键：authoritative 数字必须能凭"是什么场景"定位，而不是凭"在第几块"。
         # 实测事故（2026-09-04）：发射器用 tags[r] 按 block 顺序贴标签，
-        # 而结果文件的 block 顺序是 [354,424,495,611,615,707]——第 4 块是 611 不是 707，
+        # 而结果文件的 block 顺序与标签顺序并不一致——第 4 块并不是标签里的第 4 个，
         # 于是论文里"第四档的直算复核"比错了对象，双路互证形同虚设。
         if role == "authoritative" and not e.get("scenario_id"):
             problems.append(f"{where} 缺 scenario_id（语义主键）：authoritative 条目必须凭语义定位"
