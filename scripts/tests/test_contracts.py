@@ -1067,6 +1067,91 @@ def test_no_baseline_problem_specifics_leak_into_the_skill():
 
 
 
+ROLES = ("Coordinator", "Modeler", "Critic", "Coder",
+         "Illustrator", "Writer", "Auditor", "Finisher")
+
+
+def test_solve_workflow_starts_with_a_spec_gate():
+    """SDD：PRD 先行，且在「打磨完成」之前不得进入任何实现动作。
+
+    对应 Trellis-Herbivore 的硬门禁——brainstorm → grill-me 完成之前，
+    禁止策略决策、禁止写实现文档、禁止 start。我方等价物：
+    PRD 未过打磨关，不得进 P0 之后的任何阶段。
+    """
+    text = read_repo("workflows/solve-full.md")
+    assert "PRD" in text, "工作流缺规格阶段（PRD）"
+    assert "打磨" in text or "grill" in text.lower(), "PRD 之后缺打磨关"
+    assert "P-1" in text or "规格" in text.split("## P0")[0], "规格阶段必须排在 P0 之前"
+    head = text.split("## P0")[0]
+    assert "不得" in head or "禁止" in head, "规格关必须写明未过关之前不许做什么"
+
+
+def test_workflow_names_the_role_handoffs():
+    """每个阶段要写清是谁在做、交出什么——交接点没有产物就是口头传话。"""
+    text = read_repo("workflows/solve-full.md")
+    missing = [r for r in ROLES if r not in text]
+    assert not missing, "工作流未标注角色: %s" % missing
+
+
+def test_workflow_stays_model_agnostic():
+    """工作流只写角色，不写模型名——换模型不该让流程失效。
+
+    模型分配属环境配置，落在 开题.md；写进工作流就等于把某一套账号钉死在通用 skill 里。
+    按词边界匹配：solve 里的 sol、personal 里的 sona 之类不算命中。
+    """
+    import re
+
+    pattern = re.compile(
+        r"(?<![A-Za-z])(Opus|opus|Codex|codex|Claude|GPT|sol|astra|terra|luna)(?![A-Za-z])")
+    offenders = []
+    for name in sorted(os.listdir(os.path.join(ROOT, "workflows"))):
+        if not name.endswith(".md"):
+            continue
+        text = read_repo("workflows/" + name)
+        for hit in sorted(set(pattern.findall(text))):
+            offenders.append("workflows/%s 含模型名 %r" % (name, hit))
+    assert not offenders, "工作流里出现模型名（应移到 开题.md）:" + chr(10) + chr(10).join(offenders)
+
+
+
+def test_opening_config_carries_the_role_assignment():
+    """角色→模型的映射是可改配置，必须在 开题.md 里，且覆盖全部角色。"""
+    text = read_repo("开题.md")
+    assert "角色" in text, "开题.md 缺角色分配段"
+    missing = [r for r in ROLES if r not in text]
+    assert not missing, "开题.md 的角色分配缺: %s" % missing
+
+
+def test_readme_counts_match_the_repository():
+    """README 写的脚本数、路由数、方法卡数、契约测试数必须与实测一致。
+
+    这类数字改一次代码就可能失效，而读者没有任何办法察觉——
+    「52 项全过」在本仓真实地过期过一次。
+    """
+    import json
+    import re
+
+    readme = read_repo("README.md")
+
+    scripts = len([n for n in os.listdir(os.path.join(ROOT, "scripts")) if n.endswith(".py")])
+    assert re.search(r"脚本从 10 个加到 \*\*%d 个\*\*" % scripts, readme), \
+        "README 的脚本数与实际 %d 个不符" % scripts
+    assert "scripts/        %d 个执行体" % scripts in readme, \
+        "架构图里的脚本数与实际 %d 个不符" % scripts
+
+    routes = len(re.findall(r"^\s*-\s*id:", read_repo("routing.yaml"), re.M))
+    assert "%d 条含 other 兜底" % routes in readme, "README 的路由数与实际 %d 条不符" % routes
+
+    cards = json.loads(read_repo("references/method-cards.json"))
+    methods = sum(len(s["methods"]) for d in cards for s in d["subdomains"])
+    assert "%d 张方法卡" % methods in readme, "README 的方法卡数与实际 %d 张不符" % methods
+
+    source = read_repo("scripts/tests/test_contracts.py")
+    total = len(re.findall(r"^def (test_[A-Za-z0-9_]+)\(", source, re.M))
+    assert "**%d 项全过**" % total in readme, \
+        "README 的契约测试数与实际 %d 项不符" % total
+
+
 if __name__ == "__main__":
     fns = [(k, v) for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     bad = 0

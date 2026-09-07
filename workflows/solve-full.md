@@ -1,11 +1,29 @@
-# 完整求解：P0 → P7
+# 完整求解：P-1 规格 → P0–P7
 
 必读：`rules/modeling-redlines.md`、`rules/execution-discipline.md`
 
-开工前建 Task Anchor（Goal / Boundaries / Done When），运行 `python scripts/openconf.py`
-确认题面、附件、模板与赛事参数都读得到。**每道门禁以退出码为准，不以复述为准。**
+**角色与模型的对应关系在 `开题.md` 里**，本文件只写角色与交接。换模型不影响流程。
+单人单会话也能跑完——那时一人兼所有角色，但**交接点的产物一个都不能省**。
 
-## P0 读题与体检
+每道门禁以退出码为准，不以复述为准。
+
+---
+
+## P-1 规格（Coordinator）——未过关不得进入 P0 之后的任何阶段
+
+1. 读赛题、附件、格式规范；建 Task Anchor：Goal / Boundaries / Done When。
+2. 运行 `python scripts/openconf.py`，确认赛事参数、模板与样例目录都读得到。
+3. 写 **PRD**（`结果/PRD.md`）：目标、边界、完成标准、已知事实与待定项。
+   逐条问、一次只问一个；**能在题面与附件里查到的，先查，不要拿去问人**。
+4. **打磨关**：把 PRD 逐条追问一遍——每条完成标准都要能回答「怎么算过？谁来判？用什么命令判？」
+   答不上来的条目不许留在 PRD 里。
+
+> **本关未过之前，禁止**：定方法路线、写实现文档、动任何代码、跑任何计算。
+> 规格没写死就开工，等于让「怎么算通过」由结果反向决定——这正是 SDD 要挡的。
+
+**交出**：PRD + 题面分析。下游拿到的是这两样，不是一句口头描述。
+
+## P0 读题与体检（Coder，Coordinator 验收）
 
 1. 逐问忠实转录原题，不改写、不合并。
 2. 写 `结果/拆问卡.md`，每问九字段；`expected_outputs` 里写清对象身份口径。
@@ -14,27 +32,45 @@
 4. 逐列体检附件：规模、量纲、min/max/mean/std、缺失异常，并与题面声明逐条对照。
 5. `python scripts/task_cards.py --cards 结果/拆问卡.md --ledger 结果/results_ledger.json`
 
-## P1 口径审定
+## P1 口径审定（Coder）
 
 1. 只看原题、不看已填表，独立重建一遍可解释点，再与拆问卡对表。
 2. 每项口径绑定题面 locator、被否口径的定量对照、判别实验与对象身份。
 3. 每条口径挂一个判别实验：**若本条定错，哪个可观测量会异常**。挂不上就标 `UNVERIFIABLE` 并在论文披露。
 4. `rg -n "BLOCKED|UNVERIFIABLE|待附件核验" 结果/拆问卡.md 结果/数据体检.md`，逐条处置命中。
 
-## P2 选模与 Pilot
+## P2 选模与 Pilot（Modeler 先评审，再 Coder 执行）
 
-1. 先认题型再选方法族；多问题目共用同一个判定内核，各问只在生成/扫描/优化上分叉。
-2. 查方法卡拿候选：`python scripts/method_query.py "<题意关键词>" --top 6`。
+**Modeler 的执行前评审——有异议就退回，不动手**
+
+1. 拿 PRD、题目与题面分析，先做读题与建模复核：题意有没有读偏、方法族选得对不对、
+   完成标准可不可判。有异议列成清单交回 Coordinator，**不进入下面的步骤**。
+2. Coordinator 按第一性原理查疏漏（见下面 Critic 一节），补充项同步回来后才继续。
+
+**定型**
+
+3. 先认题型再选方法族；多问题目共用同一个判定内核，各问只在生成/扫描/优化上分叉。
+4. 查方法卡拿候选：`python scripts/method_query.py "<题意关键词>" --top 6`。
    返回的 `failure_modes` 进拆问卡⑦，`validation` 进拆问卡⑧。**高分方法可以拒绝，但要在
    `选型.md` 写明为什么不合适**；零命中也是有效信息，按自研处理并记一行。
-3. `选型.md` 每问写一行实现来源：库与 commit ／ 自研理由 ／ N/A。禁止手搓教科书算法。
-4. 机时必须用**真实内核实测**后外推，复杂度符号不能替代计时
+5. `选型.md` 每问写一行实现来源：库与 commit ／ 自研理由 ／ N/A。禁止手搓教科书算法。
+6. 机时必须用**真实内核实测**后外推，复杂度符号不能替代计时
    （`references/gotchas.md#measured-runtime-beats-estimates`）。超配额就先提速再开跑。
-5. Pilot：每问 2–3 个候选**外加一个简单 baseline**，同数据划分、同指标、同时间预算真跑。
+7. Pilot：每问 2–3 个候选**外加一个简单 baseline**，同数据划分、同指标、同时间预算真跑。
    `python scripts/pilot_gate.py --results 结果/pilot_results.json`
-6. 放大计算前，先用小规模把 P3→P7 跑通一遍最小闭环——结果、图、论文、PDF、复现入口都要真的存在。
+8. 放大计算前，先用小规模把 P3→P7 跑通一遍最小闭环——结果、图、论文、PDF、复现入口都要真的存在。
 
-## P3 实现与计算
+## Critic 对抗性审查（贯穿 P2 与 P4，由**没参与实现的一方**做）
+
+只问两个第一性原理的问题，其余都是它们的展开：
+
+- **复现了吗？** 换台机器、换个种子、解包后照 README 跑，还能得到同一个数吗？
+- **红绿了吗？** 每个断言都先红过吗，还是写完实现才补的测试？
+
+作者复核自己的实现，看到的是「我以为我写了什么」。这一步的全部价值在于**没参与**。
+发现的疏漏同步给 Coder，改完重跑受影响的门禁，不是口头确认。
+
+## P3 实现与计算（Coder）
 
 **实现与测试**
 
@@ -69,7 +105,7 @@
 13. 合理性检查：极限退化、单调性、量级粗估、跨问互恰、派生统计量从来源结构独立重算。
 14. `python scripts/ledger.py --validate 结果/results_ledger.json` 然后 `--freeze`。
 
-## P4 深度审查
+## P4 深度审查（Critic）
 
 1. 逐问核声明强度、gap、误差预算、适用家族与外部量级对照。
 2. 声明-实现一致性抽查：`论文口径原句 ↔ 代码文件:行号 ↔ 该行实际谓词`，每问关键判据至少抽 3 处。
@@ -77,16 +113,23 @@
 4. 私货约束扫描：每条模型约束都要能指到题面原文。
 5. 内核或输入改变后 `python scripts/ledger.py --stale-check 结果/results_ledger.json --write` 并回 P3。
 
-## P5 图表
+## P5 图表（Illustrator）
 
 1. 每张图先写一句「它要让评委看见什么」，并指定它支持的结论、ledger 键与正文落点。写不出就不画。
-2. 按需读 `references/figure-style.md`，并打开 `开题.md` 指定目录里的样例图看 2–3 张。
-3. `python scripts/figqa.py 图/ --tex 论文/*.tex --out 结果/figqa.json --contact 图/_contact.png`
-4. 目检 contact sheet：重叠、误差带、截断轴、图注自足、缩放比。
-5. 生成的图未被正文引用即论证链断裂——要么引用并配解读段、要么移进补充图表附录并在正文指路、要么删除
+2. 按需读 `references/figure-style.md`。**三套并行出图**：
+   - ① 主控自出一套；
+   - ② 执行方按背景、结论与结果文件路径出一套；
+   - ③ 执行方模仿 `开题.md` 指定的样例目录再出一套。
+3. 生成对照页 `图/对照.html`，三套同图并排，便于事后挑选。
+4. **默认采用第 ① 套继续走 P6**——生成文章必然要引用图，流程不停下来等人选。
+   对照页是留给使用者的接口：看完指定用哪套，替换后重跑本阶段门禁即可，其余环节不受影响。
+5. 模仿的是版面与色彩编码，**长相可以仿，数字一个都不许仿**——图里每个数必须来自账本。
+6. `python scripts/figqa.py 图/ --tex 论文/*.tex --out 结果/figqa.json --contact 图/_contact.png`
+7. 目检 contact sheet：重叠、误差带、截断轴、图注自足、缩放比。
+8. 生成的图未被正文引用即论证链断裂——要么引用并配解读段、要么移进补充图表附录并在正文指路、要么删除
    （`references/gotchas.md#generated-but-unused-figures`）。
 
-## P6 论文
+## P6 论文（Writer）
 
 **装配与数字**
 
@@ -110,7 +153,17 @@
 10. `python scripts/audit_numbers.py --ledger 结果/results_ledger.json --numbers 论文/numbers.tex --tex 论文/*.tex --out 结果/审计报告.md`
 11. 答案唯一性：每问最终答案在摘要、正文、图表、结论里是同一个数。
 
-## P7 编译与打包
+## P6.5 复核（Auditor）
+
+拿**题面原文 + 全部交付物**（不只是论文）核三件事，逐条给证据位置：
+
+1. 建模的最优解有没有真的体现在文章里——账本里的 authoritative 答案与正文结论是否一致；
+2. 公式有没有写坏——符号、下标、量纲、编号引用；
+3. 有没有按流程的规范文字写——结论块三行、汇总表、检验章六小节、图后解读段、摘要 move。
+
+只给论文核不了第 1 条。复核意见交回 Coordinator 裁决，**不直接改稿**。
+
+## P7 编译与打包（Coordinator 确认后交 Finisher）
 
 1. `latexmk -xelatex -halt-on-error -interaction=nonstopmode 论文/main.tex`
 2. `python scripts/latex_gate.py 论文/main.log --pdf 论文/main.pdf --aux 论文/main.aux --tex 论文/main.tex --appendix-label sec:appendix --abstract-label abstract:end`
