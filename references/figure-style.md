@@ -97,12 +97,35 @@
 |---|---|
 | `theme_bw()` / 去灰底 | `ax.set_facecolor('white')`；`ax.grid(False)`；`ax.spines[['top','right']].set_visible(False)` |
 | `scale_fill_manual(values=...)` | 显式传 `color=`／`c=` 列表，**不要用默认色环** |
-| `shape = 21, stroke = 0.5`（可填充带边框的点） | `scatter(..., edgecolors='k', linewidths=0.5)` |
+| `shape = 21, stroke = 0.5`（可填充带边框的点） | `scatter(..., edgecolors='k', linewidths=0.5)`；点重叠时才加 `alpha=0.7`，不重叠就别加——透明度是解决遮挡的，不是默认装饰 |
+| `geom_tile()` / `sns.heatmap()` | `im = ax.imshow(M, cmap='RdBu_r')` + `fig.colorbar(im, ax=ax)`。**热图没有色标就是没有量纲**，色标必须带单位 |
+| `geom_line(linewidth=)` | 主线 `linewidth>=1.5`；离散采样点才加 `marker`，连续曲线不加——marker 是在标"这里真的测过"，密集曲线上加只会糊成一团 |
+| `geom_col()` | 浅填充 + 细白边 `edgecolor='white', linewidth=0.5`，让相邻柱子分开而不靠描粗 |
 | `scale_x_log10()` | `ax.set_xscale('log')` |
 | `expand = expansion(mult=c(0.08,0.08))` | `ax.margins(0.08)` |
 | `coord_cartesian(clip='off')` | `ax.set_clip_on(False)` 或画在 `ax.transAxes` 上 |
 | `geom_segment` 画分组括号 | `ax.plot(..., transform=ax.get_xaxis_transform(), clip_on=False)` |
-| 中文字体 | `plt.rcParams['font.sans-serif'] = ['Microsoft YaHei']`；`axes.unicode_minus = False` |
+| 中文字体 | 见下方字体栈；`axes.unicode_minus = False` 不可省，否则负号变方框 |
+
+## 中文字体：写成栈，不写成一个名字
+
+只写 `Microsoft YaHei` 在别人机器上就是满图豆腐块。按可用性排一串，matplotlib 会依次回退：
+
+```python
+plt.rcParams['font.sans-serif'] = [
+    'Microsoft YaHei', 'SimHei',            # Windows
+    'PingFang SC', 'Hiragino Sans GB', 'STHeiti', 'Heiti TC', 'Songti SC',  # macOS
+    'Noto Sans CJK SC', 'WenQuanYi Zen Hei',                                 # Linux
+    'DejaVu Sans',                          # 末级 fallback（无中文，但不至于崩）
+]
+plt.rcParams['axes.unicode_minus'] = False
+plt.rcParams['savefig.dpi'] = 300
+plt.rcParams['savefig.bbox'] = 'tight'
+```
+
+**检验**：出图后看一眼有没有**豆腐块**（□），并检查日志里的 `Glyph .* missing from font`。
+命中就换字体重跑——不要用 `warnings.filterwarnings('ignore')` 把它压掉，那等于把唯一的
+报警器关了，最后交上去一篇方框论文。
 
 图里**不写 `set_title()`**——标题由 LaTeX 的 `\caption{}` 承担（论文形态契约的硬条款）。
 导出统一 `dpi≥300`、`bbox_inches='tight'`。

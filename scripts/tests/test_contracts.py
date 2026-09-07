@@ -849,6 +849,44 @@ def test_reference_check_resolves_anchors_not_just_files():
         assert r.returncode == 1, "悬空锚点未被判死"
 
 
+def test_paper_template_matches_authoritative_mrite_layout():
+    """对照 i3by4t3oyt/Mrite 高教社杯权威模板：算法表加宽首列、预处理表等宽、无死状态。"""
+    import re
+
+    tex = read_repo("assets/paper/5.1.1.分析与准备.tex")
+    blocks = re.split(re.escape(chr(92) + "caption{"), tex)
+    prep = next((b for b in blocks if b.startswith("数据预处理前后统计量对比")), "")
+    algo = next((b for b in blocks if b.startswith("算法能力对比")), "")
+    assert prep and algo, "5.1.1 缺预处理表或算法对比表"
+
+    pattern = re.compile(r"tabularx\}\{" + re.escape(chr(92)) + r"textwidth\}\{(.+)\}")
+    prep_cols = pattern.search(prep)
+    algo_cols = pattern.search(algo)
+    assert prep_cols and algo_cols, "两张表都要用 tabularx"
+    assert "hsize" not in prep_cols.group(1), "预处理表应等宽（权威版是 CCCCC），不该加权重"
+    assert "hsize=2.5" in algo_cols.group(1), "算法对比表首列要加宽——算法名比等级长得多"
+    assert "centering" in algo_cols.group(1), "权威版漏了 centering，我方按 Mrite 自己的规范补齐"
+
+    main = read_repo("assets/paper/main.tex")
+    if chr(92) + "title{" in main:
+        assert chr(92) + "maketitle" in main, "声明了 title 却从不 maketitle —— 死状态，应删除"
+
+
+def test_figure_style_covers_authoritative_plotting_rules():
+    """权威源 CLAUDE.md「三、代码规范」里可迁移的条目必须落在图式卡上。"""
+    style = read_repo("references/figure-style.md")
+    for token, why in (
+        ("imshow", "热图的 matplotlib 等价做法"),
+        ("colorbar", "热图必须带色标"),
+        ("PingFang", "跨平台中文字体栈（macOS）"),
+        ("Hiragino", "跨平台中文字体栈（macOS）"),
+        ("Microsoft YaHei", "跨平台中文字体栈（Windows）"),
+        ("DejaVu", "字体栈末级 fallback"),
+        ("豆腐块", "缺字返工检验"),
+    ):
+        assert token in style, "figure-style.md 缺 %s（%s）" % (token, why)
+
+
 if __name__ == "__main__":
     fns = [(k, v) for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     bad = 0
