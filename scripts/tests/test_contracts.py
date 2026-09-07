@@ -1195,6 +1195,41 @@ def test_roles_are_reachable_from_the_task_path():
     assert "references/roles.md" in corpus, "roles.md 未被任何任务路径引用"
 
 
+def test_modeling_design_has_an_explicit_owner():
+    """谁提出建模思路必须写死——否则它会掉在 Coordinator 与 Modeler 之间。
+
+    Modeler 这个名字像原创者，但它的维度全是复核；若 Coordinator 也不认领，
+    「先认题型、定主路线与核验路线」这件最要紧的事就没有主人。
+    """
+    import re
+
+    doc = read_repo("references/roles.md")
+    coord = re.search(r"^##\s+Coordinator\b(.*?)(?=^##\s)", doc, re.S | re.M).group(1)
+    for token in ("题型", "主路线", "核验路线"):
+        assert token in coord, "Coordinator 未认领建模思路：缺 %s" % token
+
+    modeler = re.search(r"^##\s+Modeler\b(.*?)(?=^##\s)", doc, re.S | re.M).group(1)
+    assert "不是原创" in modeler or "复核者" in modeler, \
+        "Modeler 必须写明自己是复核者而非建模思路的原创者"
+
+
+def test_critic_activates_stress_tests_and_anti_shallow():
+    """审查会浅得过关——必须强制至少一种压力测试模型，并要求给证据位置。"""
+    import re
+
+    doc = read_repo("references/roles.md")
+    critic = re.search(r"^##\s+Critic\b(.*?)(?=^##\s)", doc, re.S | re.M).group(1)
+    for token, why in (
+        ("Pre-Mortem", "预演失败"),
+        ("Inversion", "反演：什么能保证失败"),
+        ("证据位置", "反浅层：结论要能指到位置"),
+    ):
+        assert token in critic, "Critic 缺 %s（%s）" % (token, why)
+
+    auditor = re.search(r"^##\s+Auditor\b(.*?)(?=^##\s|\Z)", doc, re.S | re.M).group(1)
+    assert "证据位置" in auditor, "Auditor 的结论同样要能指到证据位置"
+
+
 if __name__ == "__main__":
     fns = [(k, v) for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     bad = 0
