@@ -102,8 +102,8 @@ Just choose `xelatex', no `pdflatex' or `latex' and so on.}
 
 
 \RequirePackage{fontspec}
-\newfontfamily\yaheiconsola{Latin Modern Mono}
-\setmonofont{Latin Modern Mono}
+\newfontfamily\yaheiconsola{Consolas}
+\setmonofont{Consolas}
 
 \definecolor{codegreen}{rgb}{0,0.6,0}
 

@@ -1,15 +1,14 @@
 % ── 全文通用形态（Mrite 高教社杯规范）──
-% 正文一律自然段；禁分点符号、禁 	extbf（摘要“针对问题X”与问题重述“问题N：”除外）。
+% 正文一律自然段；禁分点符号、禁 \textbf（摘要“针对问题X”与问题重述“问题N：”除外）。
 % 跨页表用 longtable，短表用 tabularx；列宽比例总和 = 1.04 − 0.04 × N（N 为列数），格内文字不换行。
-% 图宽 0.8	extwidth，表宽 	extwidth；图题交给 \caption，绘图代码不写 set_title()；图表必须在正文被引用。
-% 章与章、节与节之间一律不加 
-ewpage。
+% 图宽 0.8\textwidth，表宽 \textwidth；图题交给 \caption，绘图代码不写 set_title()；图表必须在正文被引用。
+% 章与章、节与节之间一律不加 \newpage。
 % ── 本节合同 ──
 % 具体分析三段式：① 针对问题X + 题型 + 大致方法；② 首先…接着…然后…最后…串联完整步骤，不换段；③ “具体分析流程如图X所示”。
 % 流程图用固定 9 框模板，只替换 {} 内文字，每框 ≤7 字；箭头方向与坐标一字不改。
 % 本节不讲检验、不讲结果（尚未求解）。
 % 数据预处理（仅问题一）五段：原因 → 数据理解与提取 → 处理步骤（含公式）→ 前后统计量对比 → 总结。
-% 算法选择五段：问题本质定性 → 候选算法与评估维度 → longtable 对比表（写真实算法名与等级）→ 分析对比结论 → 总结引出。
+% 算法选择五段：问题本质定性 → 候选算法与评估维度 → 对比表（写真实算法名与等级）→ 分析对比结论 → 总结引出。
 %
 \subsubsection{具体分析}
 
@@ -74,7 +73,7 @@ ewpage。
 \begin{table}[H]
   \centering
   \caption{数据预处理前后统计量对比}
-  \begin{tabularx}{\textwidth}{CCCCC}
+  \begin{tabularx}{\textwidth}{>{\hsize=2.5\hsize\centering\arraybackslash}X>{\hsize=0.6\hsize\centering\arraybackslash}X>{\hsize=0.6\hsize\centering\arraybackslash}X>{\hsize=0.6\hsize\centering\arraybackslash}X>{\hsize=0.7\hsize\centering\arraybackslash}X}
     \toprule
     指标 & 预处理前均值 & 预处理前标准差 & 预处理后均值 & 预处理后标准差 \\
     \midrule

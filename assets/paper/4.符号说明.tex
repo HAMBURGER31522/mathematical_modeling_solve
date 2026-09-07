@@ -1,11 +1,10 @@
 % ── 全文通用形态（Mrite 高教社杯规范）──
-% 正文一律自然段；禁分点符号、禁 	extbf（摘要“针对问题X”与问题重述“问题N：”除外）。
+% 正文一律自然段；禁分点符号、禁 \textbf（摘要“针对问题X”与问题重述“问题N：”除外）。
 % 跨页表用 longtable，短表用 tabularx；列宽比例总和 = 1.04 − 0.04 × N（N 为列数），格内文字不换行。
-% 图宽 0.8	extwidth，表宽 	extwidth；图题交给 \caption，绘图代码不写 set_title()；图表必须在正文被引用。
-% 章与章、节与节之间一律不加 
-ewpage。
+% 图宽 0.8\textwidth，表宽 \textwidth；图题交给 \caption，绘图代码不写 set_title()；图表必须在正文被引用。
+% 章与章、节与节之间一律不加 \newpage。
 % ── 本节合同 ──
-% 本节的 longtable 写法是全文表格的样板，其余各章一律沿用（含 \endfirsthead/\endhead/\endfoot 固定结构）。
+% 本节的表格写法是全文样板，其余各章一律沿用（跨页表含 \endfirsthead/\endhead/\endfoot 固定结构）。
 % 2 列取 0.18+0.78；列宽比例总和必须等于 1.04 − 0.04 × N。
 %
 \section{符号说明}
