@@ -887,6 +887,55 @@ def test_figure_style_covers_authoritative_plotting_rules():
         assert token in style, "figure-style.md 缺 %s（%s）" % (token, why)
 
 
+def test_every_shipped_gate_is_invoked_on_the_task_path():
+    """发了门禁却没有任何流程调用它 = 死内容。
+
+    实测：certify.py 是三态证书的执行体、R2 要求结论必须带证书，
+    但 workflows 与 rules 里从未出现过这条命令——门禁在盘上，没人跑。
+    这与「坑点只存不激活」是同一个病，只是对象换成了脚本。
+    """
+    task_path = read_repo("SKILL.md")
+    for sub in ("rules", "workflows"):
+        base = os.path.join(ROOT, sub)
+        for name in sorted(os.listdir(base)):
+            if name.endswith(".md"):
+                task_path += read_repo(sub + "/" + name)
+
+    helpers = {"openconf.py", "ledger.py",  # 被别的脚本调用，或以子命令形式出现
+               "skill_smoke.py"}        # 审 skill 自身，由本契约测试调用，不在解题路径上
+    orphans = []
+    for name in sorted(os.listdir(os.path.join(ROOT, "scripts"))):
+        if not name.endswith(".py") or name in helpers:
+            continue
+        if name not in task_path:
+            orphans.append(name)
+    assert not orphans, "以下门禁没有任何流程调用（发了没人跑）: %s" % orphans
+
+
+def test_official_gates_are_not_bypassed_by_ad_hoc_commands():
+    """流程里不得用裸命令替代已有门禁——这正是我方红线禁止的自写替代品。"""
+    for rel in ("workflows/solve-full.md", "workflows/paper-only.md",
+                "workflows/latex-fix.md", "workflows/gate-triage.md",
+                "workflows/task-execution.md"):
+        text = read_repo(rel)
+        assert "api.crossref.org" not in text, (
+            rel + " 用裸 curl 查 Crossref，绕过了 refs_check.py 的标题比对与退出码")
+
+
+def test_attribution_states_verified_facts():
+    """已发布仓库里的来源声明必须与实际一致——写错的许可与来源比不写更糟。"""
+    import json
+
+    text = read_repo("ATTRIBUTION.md")
+    assert "i3by4t3oyt/Mrite" in text, "论文模板的真实来源是 i3by4t3oyt/Mrite"
+    assert "Rzna-5559" not in text, "旧源 Rzna-5559/Mrite 并非我方所用，不应出现在来源声明里"
+    assert "仓库无 LICENSE 文件" not in text, "权威源是带 LICENSE 的，该断言已过期"
+
+    cards = json.loads(read_repo("references/method-cards.json"))
+    count = sum(len(sub["methods"]) for domain in cards for sub in domain["subdomains"])
+    assert str(count) in text, "ATTRIBUTION 写的方法数与 method-cards.json 实际 %d 个不符" % count
+
+
 if __name__ == "__main__":
     fns = [(k, v) for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     bad = 0

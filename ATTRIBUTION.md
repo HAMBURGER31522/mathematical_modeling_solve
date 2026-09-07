@@ -9,11 +9,11 @@
 | [sweetcornna/mathodology](https://github.com/sweetcornna/mathodology) | MIT | 图文质检思想（contact sheet/逐张质检/PDF 检查）、多路线选型比较、迭代预算（每 Gate ≤2 轮、全程 ≤8 轮、decision memo） |
 | [zhnnky329/MathModeling-skills](https://github.com/zhnnky329/MathModeling-skills) | MIT | 数字冻结契约（代码→账本→论文单向流）、三向一致性审计、变更影响传播（stale 标记）、方法选型风险探针、反过度主张扫描 |
 | [Lupynow/math-modeling-skills](https://github.com/Lupynow/math-modeling-skills) | MIT | 选模与冲突裁决思想、Claim-Evidence 自审框架、去 AI 味写作铁律 |
-| Remit `backend/app/core/knowledge/modeling_methods.json` | MIT | 原样引入 `references/method-cards.json`：91 个方法的 assumptions、failure_modes、validation 字段 |
+| Remit `backend/app/core/knowledge/modeling_methods.json` | MIT | 原样引入 `references/method-cards.json`：66 个方法的 assumptions、failure_modes、validation 字段 |
 
 ## 仅参考做法/设计思想（未复制任何文本）
 
-- [Rzna-5559/Mrite](https://github.com/Rzna-5559/Mrite)：仓库无 LICENSE 文件，仅 README 声明 MIT 而无授权正文。按 v3.3 清单，`assets/paper/` 引入其 `format.cls`、`fonts/` 和分节 tex 结构作本地自用模板；公开分发前必须先确认上游许可。为本机编译，唯一环境兼容改动是将缺失的 Menlo 单宽字体替换为 TeX Live 自带的 Latin Modern Mono。
+- [i3by4t3oyt/Mrite](https://github.com/i3by4t3oyt/Mrite)（含 LICENSE 文件）：`assets/paper/` 引入其 `projects/高教社杯/论文/` 的 `format.cls`、`fonts/` 与分节 tex 结构，并沿用其写作形态契约（摘要字数与一页核验、正文禁分点禁 \textbf、表格列宽通式、9 框流程图、算法选择五段式）。有意差异三处：模型检验章改为六小节、模型评价章缺点按「缺陷—影响—改进」写、附录加 `\label{sec:appendix}` 供页数切分。`main.tex` 另加 numbers.tex 注入位与 `[NUMBERS-MISSING]` 失败标记。
 - yushui2022/MathModel-Skill（无许可证）：阶段交接契约、运行清单哈希、结果 JSON 回填正文的设计思想，全部独立重实现并修复其实测缺陷（门禁必须理解统计语义、渲染失败不得静默降级）。
 - XiaoMaColtAI/math-modeling-skill（无 LICENSE）与 jihe520/MathModelAgent（自定义非商用条款，禁止二次组合）：**未合入任何内容**；本 skill P7 的编译门禁、复现闭环等相似环节系独立设计，与二者无承继关系。
 
