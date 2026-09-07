@@ -55,9 +55,20 @@ def _parse_value(value: str) -> Any:
 
 
 def load_all() -> dict[str, Any]:
-    """Return all non-empty keys from the flat YAML mapping in ``开题.md``."""
+    """Return all non-empty keys from the flat YAML mapping in ``开题.md``.
+
+    ``开题.md`` 是给人读的：参数放在围栏代码块里，块外是说明文字。
+    有围栏就只读第一个围栏块的内容；没有围栏就退回整篇按裸 ``key: value`` 读，
+    兼容早期只有配置行、没有说明的写法。
+    """
+    text = CONFIG_PATH.read_text(encoding="utf-8-sig")
+    fenced = re.search(r"^```[^\n]*\n(.*?)^```", text, re.S | re.M)
+    body = fenced.group(1) if fenced else text
+    offset = text[: fenced.start(1)].count("\n") if fenced else 0
+
     config: dict[str, Any] = {}
-    for line_number, raw_line in enumerate(CONFIG_PATH.read_text(encoding="utf-8-sig").splitlines(), 1):
+    for index, raw_line in enumerate(body.splitlines(), 1):
+        line_number = index + offset
         line = raw_line.strip()
         if not line or line.startswith("#"):
             continue

@@ -758,6 +758,43 @@ def test_seed_gate_catches_answer_drift_across_seed_families():
         assert r.returncode == 2, "输入结构不合法应判用法错误"
 
 
+def test_skill_smoke_guards_thin_shell_and_placeholders():
+    """薄壳承重结构与指令目录占位符必须被机器守住，不能靠人记得。"""
+    gate = os.path.join(ROOT, "scripts", "skill_smoke.py")
+
+    def run(root):
+        return subprocess.run([PY, gate, "--root", root], capture_output=True, env=ENV)
+
+    assert run(ROOT).returncode == 0, run(ROOT).stdout.decode("utf-8", "replace")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        import shutil
+        for case, mutate in (
+            ("no_xml", lambda p: _sub(p, "CLAUDE.md", "<task-routing>", "")),
+            ("no_autotrigger", lambda p: _sub(p, "CLAUDE.md", "## Auto-Triggers", "## Notes")),
+            ("shell_route_drift", lambda p: _sub(p, "CLAUDE.md",
+                                                 "`workflows/latex-fix.md`", "`workflows/ghost.md`")),
+            ("fill_left", lambda p: _append(p, "workflows/task-execution.md",
+                                            chr(10) + "<!-- FILL: 待补 -->" + chr(10))),
+        ):
+            root = os.path.join(tmp, case)
+            shutil.copytree(ROOT, root, ignore=shutil.ignore_patterns(
+                ".git", "__pycache__", "assets", "*.pyc"))
+            mutate(root)
+            assert run(root).returncode == 1, "%s 未被自检判死" % case
+
+
+def _sub(root, rel, old, new):
+    path = os.path.join(root, rel)
+    text = io.open(path, encoding="utf-8").read()
+    io.open(path, "w", encoding="utf-8").write(text.replace(old, new, 1))
+
+
+def _append(root, rel, extra):
+    path = os.path.join(root, rel)
+    io.open(path, "a", encoding="utf-8").write(extra)
+
+
 if __name__ == "__main__":
     fns = [(k, v) for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     bad = 0

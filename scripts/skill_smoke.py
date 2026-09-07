@@ -83,13 +83,49 @@ def main():
         check(len(heads) == len(set(heads)), "gotchas.md 有重复的 ## 标题：%s" %
               [h for h in heads if heads.count(h) > 1])
 
-    # ── 3. 占位符残留
-    for rel in ("SKILL.md", "routing.yaml", "CLAUDE.md", "CODEX.md"):
+    # ── 3. 占位符残留：指令目录整棵扫，不能只看根部几个文件
+    # 上游的判据是 `grep -rn 'FILL:' skills/<name>/`，任何命中都是必填项没填完。
+    # 排除 assets/（LaTeX 的 {{ }} 是合法语法）与 tests/（fixture 会故意造残留）。
+    placeholder_files = ["SKILL.md", "routing.yaml", "CLAUDE.md", "CODEX.md"]
+    for sub in ("rules", "workflows", "references"):
+        base = os.path.join(ROOT, sub)
+        for dirpath, dirnames, filenames in os.walk(base):
+            dirnames[:] = [d for d in dirnames if d not in ("tests", "__pycache__")]
+            for name in filenames:
+                if name.endswith((".md", ".yaml")):
+                    placeholder_files.append(
+                        os.path.relpath(os.path.join(dirpath, name), ROOT).replace("\\", "/"))
+    for rel in placeholder_files:
         text = read(rel)
         if text is None:
             continue
-        check("{{" not in text, "%s 残留 {{...}} 占位符" % rel)
-        check("<!-- FILL" not in text, "%s 残留 <!-- FILL --> 标记" % rel)
+        for token in ("{{NAME}}", "{{SUMMARY}}", "<!-- FILL:"):
+            check(token not in text, "%s 残留占位符 %s（必填项，不是可选项）" % (rel, token))
+
+    # ── 3b. 薄壳的承重结构不能被悄悄删掉
+    # 压缩后只剩薄壳，所以它的三块（XML 标签 / Auto-Triggers / Red Flags）与路由一致性
+    # 必须被机器守住——否则删掉标签仍然「自检全绿」。
+    route_wfs = set(re.findall(r"^\s*workflow:\s*(\S+)\s*$", routing or "", re.M))
+    for shell in ("CLAUDE.md", "CODEX.md"):
+        text = read(shell)
+        if text is None:
+            continue
+        for tag in ("<always-applicable>", "</always-applicable>",
+                    "<task-routing>", "</task-routing>"):
+            check(text.count(tag) == 1,
+                  "%s 的承重标签 %s 出现 %d 次（应恰好 1 次）" % (shell, tag, text.count(tag)))
+        if "<always-applicable>" in text and "<task-routing>" in text:
+            check(text.index("</always-applicable>") < text.index("<task-routing>"),
+                  "%s 的 always-applicable 必须闭合在 task-routing 之前" % shell)
+        check("## Auto-Triggers" in text, "%s 缺 Auto-Triggers 板块" % shell)
+        check("Red Flags" in text, "%s 缺 Red Flags — STOP 板块" % shell)
+        first = re.search(r"##\s*Auto-Triggers\s*\n\s*-\s*(.+)", text)
+        check(bool(first) and "重走路由" in first.group(1),
+              "%s 的第一条 Auto-Trigger 必须是「同会话新任务重走路由」" % shell)
+        shell_wfs = set(re.findall(r"`(workflows/[^`]+\.md)`", text))
+        check(shell_wfs == route_wfs,
+              "%s 的 Quick Routing 与 routing.yaml 不一致：只在薄壳 %s；只在路由 %s"
+              % (shell, sorted(shell_wfs - route_wfs), sorted(route_wfs - shell_wfs)))
 
     # ── 4. description 质量：模型天然 undertrigger，触发短语必须够
     fm = skill.split("---")[1] if skill.startswith("---") else ""

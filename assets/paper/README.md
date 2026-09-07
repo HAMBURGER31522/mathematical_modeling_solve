@@ -1,54 +1,61 @@
-# 论文 LaTeX 模板
+# 论文模板（高教社杯 / CUMCM 形态契约）
 
-> 本目录是论文模板的**唯一源头**。`Skill/论文/` 中的模板文件由本目录复制而来，修改模板请在此处进行。
+`format.cls` 是 `cumcmthesis` v2.6（国赛标准模板），与 `fonts/`（思源宋体 Bold + Regular）
+一并取自 Mrite。**有官方模板时不得用它覆盖官方 class**，只沿用这里的分节装配结构与写作合同。
 
----
+每个分节 tex 顶部写着**该节专属的写作合同**——照着填就对，不必回头读规范散文。
+全文通用的四条（禁分点禁 `\textbf`、表格列宽通式、图宽与 caption、章节间不加 `\newpage`）
+在每个文件顶部重复一遍，因为写某一节时只会打开那一个文件。
 
-## 文件清单
+## 文件
 
 | 文件 | 说明 |
-|------|------|
-| `format.cls` | 论文样式定义文件 |
-| `fonts/` | 思源宋体字体（Bold + Regular） |
-| `论文.tex` | 主文件（需自行创建，结构见下方） |
-| `0.摘要.tex` ~ `10.附录.tex` | 14 个章节空白模板 |
+|---|---|
+| `main.tex` | 主控，装配全部分节；含 `numbers.tex` 注入位与 `[NUMBERS-MISSING]` 失败标记 |
+| `format.cls` + `fonts/` | 国赛样式与字体，不要改 |
+| `0.摘要.tex` … `10.附录.tex` | 分节模板，各带本节写作合同 |
 
-## 章节结构
+## 按问题数装配
 
-```
-0.摘要.tex           # ≤900字，严格1页
-1.引言.tex           # 问题背景 + 问题重述
-2.总体分析.tex       # 三段式逐问串联
-3.模型假设.tex       # itemize，每条带编号
-4.符号说明.tex       # 统一 longtable 表格
-5.模型的建立与求解.tex   # 主文件，\input 各问题子文件
-5.1.问题1的建立求解.tex  # 每问主文件，\input 两个子文件
-5.1.1.分析与准备.tex     # 具体分析 + 流程图 + 模型准备
-5.1.2.建模与求解.tex     # 模型建立 + 模型求解
-6.模型检验.tex       # 误差分析 + 灵敏度分析
-7.模型评价.tex       # 优点4条 + 缺点2条
-8.模型改进推广.tex   # 各一段自然段落
-9.参考文献.tex       # GB/T 7714-2015，8-15条
-10.附录.tex          # 附件说明表
+模板只预置**问题一**（`5.1.*`）。多一问就复制一次：
+
+```bash
+cp 5.1.问题1的建立求解.tex 5.2.问题2的建立求解.tex
+cp 5.1.1.分析与准备.tex     5.2.1.分析与准备.tex
+cp 5.1.2.建模与求解.tex     5.2.2.建模与求解.tex
+# 改文件里的 \input 路径与小节号，再在 5.模型的建立与求解.tex 里加一行 \input
 ```
 
-## 使用方式
+问题少于预置数就删掉对应的 `\input` 行。总结建议类的问题不分小节，写自然段落。
 
-1. 复制本目录下所有文件到工作目录
-2. 创建 `论文.tex` 主文件（结构见 Skill/CLAUDE.md）
-3. 编辑各章节 tex 文件填写内容
-4. 编译：
-   ```bash
-   xelatex -interaction=nonstopmode 论文.tex
-   xelatex -interaction=nonstopmode 论文.tex
-   ```
+## 数字只能从台账来
 
-## 维护约定
+正文不写裸数字，一律引用宏：
 
-- 修改模板请**在此目录**进行，修改后同步至 `Skill/论文/`
-- 同步命令（在仓库根目录执行）：
-  ```bash
-  cp 模板/format.cls Skill/论文/
-  cp 模板/*.tex Skill/论文/
-  cp -r 模板/fonts Skill/论文/
-  ```
+```bash
+python scripts/ledger.py --emit-tex 结果/results_ledger.json -o 论文/numbers.tex
+```
+
+没生成就编译，`main.tex` 会打出 `[NUMBERS-MISSING]` 而不是静默出一份缺数字的 PDF。
+宏携带证书元数据（下界、n、seed、verdict、resolved、Δ、u），机会约束类数字旁必须出现下界值。
+
+## 编译与门禁
+
+```bash
+latexmk -xelatex -halt-on-error -interaction=nonstopmode main.tex
+python scripts/latex_gate.py 论文/main.log --pdf 论文/main.pdf --aux 论文/main.aux \
+       --tex 论文/main.tex --appendix-label sec:appendix --abstract-label abstract:end
+```
+
+页数上下限从 `开题.md` 读，不写死在这里。`sec:appendix` 与 `abstract:end` 两个 label
+不得删除——前者用来切分正文页数与附录页数，后者用来程序化核验摘要恰为一页。
+
+编译不干净时走 `workflows/latex-fix.md`。
+
+## 两处与 Mrite 原版的差异
+
+1. **模型检验章是六小节**（双路互证 / 可核事实对表 / 参数灵敏度 / 样本量与收敛 /
+   稳健性对照 / 适用边界），不是原版的"误差分析 + 灵敏度分析"两节。
+   对标同题人工基线，检验章体量是全文第二大；压成几句话是我方历史上最大的单项失分。
+2. **模型评价章的缺点按「缺陷—影响—改进」写**，并须与降级声明逐条一致：
+   凡被降级的结论，此处要写明它的实际强度等级。
