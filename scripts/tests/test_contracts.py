@@ -936,6 +936,38 @@ def test_attribution_states_verified_facts():
     assert str(count) in text, "ATTRIBUTION 写的方法数与 method-cards.json 实际 %d 个不符" % count
 
 
+def test_published_skill_carries_no_lab_narrative():
+    """文章 2.12：会话历史、评审过程、实验轮次是项目叙事，不是可复用知识。
+
+    它们留在 skill 里有两个后果：真实任务会读到已过期的决策，
+    以及公开仓库暴露本机目录结构。二者都属于「记录位置放错层」。
+    """
+    banned = {
+        "初稿": "评审阶段标记",
+        "待拍板": "评审阶段标记",
+        "v0.2": "内部版本号",
+        "落地顺序": "迁移计划，属实验室",
+        "loop2-r2": "实验轮次标识",
+        "loop3-r1": "实验轮次标识",
+        "STATUS.md": "实验室运行态文件",
+        "spec.md": "实验室契约文件",
+        chr(70) + ":" + chr(92): "本机绝对路径（Windows）",
+        chr(70) + ":/": "本机绝对路径（正斜杠）",
+    }
+    offenders = []
+    for dirpath, dirnames, filenames in os.walk(ROOT):
+        dirnames[:] = [d for d in dirnames if d not in (".git", "__pycache__", "tests", "fonts")]
+        for name in filenames:
+            if not name.endswith((".md", ".yaml")):
+                continue
+            rel = os.path.relpath(os.path.join(dirpath, name), ROOT).replace(chr(92), "/")
+            text = read_repo(rel) or ""
+            for token, why in banned.items():
+                if token in text:
+                    offenders.append("%s 含 %r（%s）" % (rel, token, why))
+    assert not offenders, "已发布的 skill 里残留实验室叙事:" + chr(10) + chr(10).join(offenders)
+
+
 if __name__ == "__main__":
     fns = [(k, v) for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     bad = 0
