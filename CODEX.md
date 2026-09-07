@@ -7,10 +7,7 @@
 
 <always-applicable>
 
-**Always Read（每个任务，选路由之前）**
-
-1. `rules/modeling-redlines.md`
-2. `rules/execution-discipline.md`
+**先读 `routing.yaml` 定路由，再按该路由的 `required_reads` 取规则**——没有对所有任务都强制的必读。
 
 赛事参数只从 `开题.md` 取；门禁判定只认 `scripts/` 的退出码，不认复述。
 
@@ -19,13 +16,15 @@
 <task-routing>
 
 ## Quick Routing
+
 | Task | Required reads | Workflow |
 |---|---|---|
 | 完整数模解题 | `rules/modeling-redlines.md` + `rules/execution-discipline.md` | `workflows/solve-full.md` |
-| 基于已验证结果写论文 | 同上 | `workflows/paper-only.md` |
-| LaTeX 编译或版面修错 | 同上 | `workflows/latex-fix.md` |
-| Gate 失败排查 | 同上 | `workflows/gate-triage.md` |
-| Other | 同上 | `workflows/task-execution.md` |
+| 只求解、暂不写论文 | `rules/modeling-redlines.md` + `rules/execution-discipline.md` | `workflows/solve-only.md` |
+| 基于已验证结果写论文 | `rules/execution-discipline.md` | `workflows/paper-only.md` |
+| LaTeX 编译或版面修错 | （无固定必读） | `workflows/latex-fix.md` |
+| Gate 失败排查 | `rules/execution-discipline.md` | `workflows/gate-triage.md` |
+| Other | 先读 `routing.yaml` 判路由 | `workflows/task-execution.md` |
 
 </task-routing>
 

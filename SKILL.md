@@ -15,8 +15,8 @@ primary: true
 
 ## Always Read
 <!-- ALWAYS_READ_START -->
-1. `rules/modeling-redlines.md`
-2. `rules/execution-discipline.md`
+无固定必读。规则按路由带：每条任务在 `routing.yaml` 里声明自己的 `required_reads`，workflow 在到达对应阶段时才拉取知识。
+这样纯排版或门禁排查不会被迫读完建模红线。
 <!-- ALWAYS_READ_END -->
 
 ## Session Discipline

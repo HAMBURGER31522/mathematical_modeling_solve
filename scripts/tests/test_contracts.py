@@ -968,6 +968,66 @@ def test_published_skill_carries_no_lab_narrative():
     assert not offenders, "已发布的 skill 里残留实验室叙事:" + chr(10) + chr(10).join(offenders)
 
 
+def test_routing_covers_partial_solve_without_paper():
+    """比赛里常见「先做第一问」「只要模型和结果、暂时不写论文」，不能落到 other。
+
+    other 走 task-execution，不保证 P0-P4 的拆问卡、Pilot、独立测试与冻结都发生；
+    这类请求恰恰最需要那几道纪律。
+    """
+    routing = read_repo("routing.yaml")
+    assert "solve-only" in routing, "缺 solve-only 路由：分阶段求解会落到 other 而丢失 P0-P4 纪律"
+    assert os.path.isfile(os.path.join(ROOT, "workflows", "solve-only.md")), \
+        "routing 声明了 solve-only 却没有对应 workflow"
+    for phrase in ("先做", "不写论文"):
+        assert phrase in routing, "solve-only 的 trigger_examples 需覆盖真实说法：%s" % phrase
+    for shell in ("CLAUDE.md", "CODEX.md"):
+        assert "solve-only" in read_repo(shell), shell + " 的 Quick Routing 未同步 solve-only"
+
+
+def test_method_cards_have_a_query_entry_not_a_slurp():
+    """1769 行的方法卡没有查询入口，P2 只会整文件读或截断——渐进加载名存实亡。"""
+    assert os.path.isfile(os.path.join(ROOT, "scripts", "method_query.py")), \
+        "method-cards.json 需要查询脚本，否则「按需读」无法执行"
+    workflow = read_repo("workflows/solve-full.md")
+    assert "method_query.py" in workflow, "P2 必须写出具体查询命令，而不是「按需读方法卡」"
+
+
+def test_workflow_steps_stay_actionable():
+    """单步塞太多等于没有分步：物理压行不减少认知负荷。"""
+    over = []
+    base = os.path.join(ROOT, "workflows")
+    for name in sorted(os.listdir(base)):
+        if not name.endswith(".md"):
+            continue
+        for number, line in enumerate(read_repo("workflows/" + name).split(chr(10)), 1):
+            if len(line) > 400:
+                over.append("workflows/%s:%d 长 %d 字符" % (name, number, len(line)))
+    assert not over, "以下步骤过载，应拆成子步骤:" + chr(10) + chr(10).join(over)
+
+
+def test_always_read_is_universal_only():
+    """Always Read 只放任何任务都适用的约束；领域规则由路由按需带。
+
+    规范：永远一起加载的文件应合并或各自获得独立加载理由。
+    纯 LaTeX 修错不该被迫读完建模红线。
+    """
+    import re
+
+    skill = read_repo("SKILL.md")
+    block = re.search(r"<!-- ALWAYS_READ_START -->(.*?)<!-- ALWAYS_READ_END -->", skill, re.S)
+    assert block, "SKILL.md 缺 Always Read 标记块"
+    entries = [ln for ln in block.group(1).split(chr(10)) if ln.strip().startswith(("1.", "2.", "3.", "-"))]
+    assert len(entries) <= 1, \
+        "Always Read 有 %d 条：领域规则应改由路由的 required_reads 按需带" % len(entries)
+
+    routing = read_repo("routing.yaml")
+    ids = re.findall(r"^\s*-\s*id:\s*(\S+)", routing, re.M)
+    reads = re.findall(r"^\s*required_reads:", routing, re.M)
+    assert len(reads) >= len(ids) - 1, \
+        "每条路由都要写 required_reads（other 兜底可省），当前 %d 条路由只有 %d 条声明" % (
+            len(ids), len(reads))
+
+
 if __name__ == "__main__":
     fns = [(k, v) for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     bad = 0
