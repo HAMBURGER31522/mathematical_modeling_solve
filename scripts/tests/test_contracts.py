@@ -1152,6 +1152,49 @@ def test_readme_counts_match_the_repository():
         "README 的契约测试数与实际 %d 项不符" % total
 
 
+def test_every_role_has_enumerated_dimensions():
+    """角色不能只有一句话职责——每个角色要有可逐条对照的维度清单。
+
+    单句职责在交接时无法验收：「Coder 负责实现」这种写法，交回来的东西
+    是好是坏没有对照物。维度清单才是交接点的验收单。
+    """
+    import re
+
+    doc = read_repo("references/roles.md")
+    assert doc, "缺 references/roles.md"
+
+    for role in ROLES:
+        block = re.search(r"^##\s+%s\b(.*?)(?=^##\s|\Z)" % role, doc, re.S | re.M)
+        assert block, "roles.md 缺角色 %s 的小节" % role
+        body = block.group(1)
+        items = re.findall(r"^\s*(?:\|\s*[A-Z]\d|\d+\.)\s", body, re.M)
+        assert len(items) >= 5, "%s 的职责维度只有 %d 条，太笼统" % (role, len(items))
+
+
+def test_auditor_covers_the_named_review_dimensions():
+    """复核必须覆盖点名的三条，且不止这三条。"""
+    import re
+
+    doc = read_repo("references/roles.md")
+    block = re.search(r"^##\s+Auditor\b(.*?)(?=^##\s|\Z)", doc, re.S | re.M)
+    assert block, "roles.md 缺 Auditor 小节"
+    body = block.group(1)
+    for token, why in (
+        ("最优解", "建模最优解有没有体现在文章里"),
+        ("公式", "公式有没有写坏"),
+        ("规范", "有没有按流程的规范文字写"),
+    ):
+        assert token in body, "Auditor 缺点名维度：%s" % why
+    rows = re.findall(r"^\s*\|\s*A\d+\s*\|", body, re.M)
+    assert len(rows) >= 8, "Auditor 只有 %d 条维度——点名的三条之外还有不少" % len(rows)
+
+
+def test_roles_are_reachable_from_the_task_path():
+    """角色清单要在任务路径上读得到，不能只躺在 references。"""
+    corpus = read_repo("workflows/solve-full.md") + read_repo("开题.md")
+    assert "references/roles.md" in corpus, "roles.md 未被任何任务路径引用"
+
+
 if __name__ == "__main__":
     fns = [(k, v) for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     bad = 0
