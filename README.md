@@ -116,7 +116,7 @@ assets/paper/   论文形态契约（cumcmthesis 分节模板，每节带写作�
 | P7 打包 | `pkg_scan.py` | 已判「合规全 PASS」的交付包里写着真实口令，差一步推上公开仓库 |
 | 维护 | `skill_smoke.py` | skill 自己的自检：行数预算、占位符残留、路由断链、薄壳承重结构、引用锚点 |
 
-`scripts/tests/test_contracts.py` 把每个脚本承诺的行为钉成断言，当前 **75 项全过**。
+`scripts/tests/test_contracts.py` 把每个脚本承诺的行为钉成断言，当前 **76 项全过**。
 **契约测试不过时，"官方脚本不可替代"这句话就是虚假确定性。**
 
 ### 全程产物

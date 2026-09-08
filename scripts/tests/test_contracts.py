@@ -1526,6 +1526,28 @@ def test_spec_gate_is_split_so_it_does_not_forbid_its_own_output():
         "P-1 未拆关：写建模详要（含主路线）与「禁止定方法路线」写在同一关里，逻辑打架"
 
 
+def test_repository_root_carries_no_foreign_scaffolding():
+    """根目录只允许白名单内的条目。
+
+    实测事故：一次执行方在本仓根目录拉出了另一套工具的脚手架
+    （`.trellis/`、`.agents/`、`.codex/`、`AGENTS.md`），当时没有任何检查能拦住，
+    差一步就跟着提交上去。skill 仓只装 skill 本身——别的工具的工作目录不属于这里。
+    """
+    allowed = {
+        ".git", ".gitignore",
+        "README.md", "SKILL.md", "ATTRIBUTION.md", "CLAUDE.md", "CODEX.md",
+        "routing.yaml", "开题.md",
+        "rules", "workflows", "references", "scripts", "assets",
+    }
+    # 运行期产物与本地缓存不算污染，但也不该被提交（已在 .gitignore 里）
+    tolerated = {"__pycache__", "结果", "图", "论文", "求解"}
+    found = {name for name in os.listdir(ROOT)}
+    foreign = sorted(found - allowed - tolerated)
+    assert not foreign, (
+        "仓库根目录出现了不属于本 skill 的条目：" + ", ".join(foreign)
+        + "。skill 仓只装 skill 本身；别的工具的脚手架请留在它自己的工作目录。")
+
+
 if __name__ == "__main__":
     fns = [(k, v) for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     bad = 0
