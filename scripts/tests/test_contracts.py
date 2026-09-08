@@ -1548,6 +1548,26 @@ def test_repository_root_carries_no_foreign_scaffolding():
         + "。skill 仓只装 skill 本身；别的工具的脚手架请留在它自己的工作目录。")
 
 
+def test_spec_gate_uses_frontier_rounds_not_one_at_a_time():
+    """一次问一个是前沿恒为 1 的退化情形：既慢，又只能靠运气维持依赖顺序。
+
+    取自 mattpocock/skills 的 grilling：把决策画成设计树，前沿是所有前置已定、
+    现在就能问的决策；一轮把整个前沿问完，每题带推荐答案；依赖本轮未定项的问题
+    属于下一轮。前沿为空才算结束——每条分支都走到，没有一处被默默假设。
+    """
+    text = read_repo("workflows/solve-full.md")
+    head = text.split("## P-1b")[0]
+    for token, why in (
+        ("前沿", "frontier：前置已定、现在就能问的决策集合"),
+        ("推荐", "每题必须带推荐答案，不能只抛问题"),
+        ("下一轮", "依赖未定项的问题要推到后面的轮次"),
+        ("查", "需要环境事实时自己去查，不拿去问人"),
+    ):
+        assert token in head, "P-1a 的提问方式缺「%s」（%s）" % (token, why)
+    assert "一次只问一个" not in head, \
+        "「一次只问一个」是前沿模型的退化情形，应改为按轮次问完整个前沿"
+
+
 if __name__ == "__main__":
     fns = [(k, v) for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     bad = 0
