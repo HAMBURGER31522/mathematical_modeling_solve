@@ -13,6 +13,14 @@
 
 </always-applicable>
 
+<model-selection>
+
+当前窗口中用户选定的模型与推理档位是最终默认。除非用户在当前请求中明确改选，
+不得为新窗口、子任务或任何委派显式指定不同的模型或推理档位；未显式指定时继承
+宿主默认。角色映射只描述角色职责，不构成覆盖用户当前选择的授权。
+
+</model-selection>
+
 <task-routing>
 
 ## Quick Routing
