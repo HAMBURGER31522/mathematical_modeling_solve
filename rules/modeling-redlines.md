@@ -13,7 +13,7 @@
 - **R6 数字只能单向流动。** 结果由代码进入唯一 authoritative ledger，再生成论文宏，并保持依赖哈希、磁盘结果与论文三向可回读。
   **检验**：运行 `python scripts/ledger.py --validate 结果/results_ledger.json` 与 `python scripts/audit_numbers.py --ledger 结果/results_ledger.json --numbers 论文/numbers.tex --tex 论文/*.tex`。
 - **R7 赛制合规阻断提交。** 页数、图数、摘要、模板、命名、匿名与声明只从 `开题.md` 和赛事原文取值。
-  **检验**：运行 `python scripts/openconf.py`、`python scripts/latex_gate.py 论文/main.log --pdf 论文/main.pdf --aux 论文/main.aux --tex 论文/main.tex` 与 `python scripts/pkg_scan.py 交付/`。
+  **检验**：运行 `python scripts/openconf.py`、`python scripts/latex_gate.py 论文/.latex-build/main.log --pdf 论文/main.pdf --aux 论文/.latex-build/main.aux --tex 论文/main.tex` 与 `python scripts/pkg_scan.py 交付/`。
 - **R8/9 每问既是形式化模型也是可复写算法。** 正文须呈现变量、目标或判据、约束，并按论文形态契约给出算法选择五段式、算法对比表及输入、步骤、输出、复杂度。
   **检验**：遮住代码后，读者能否指出三项模型要素并仅凭算法段重写求解过程？
 - **R10 数据反推必须有排他性。** 观察只能在替代解释被独立证据排除后升级为结论，否则降为假设或“与观察相容”。

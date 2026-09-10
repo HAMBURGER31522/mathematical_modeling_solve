@@ -103,7 +103,7 @@ def expand_inputs(paths, seen=None, depth=0):
     """把 \\input / \\include 递归展开成实际文件列表。
 
     分节论文的 main.tex 里几乎只有 \\input，不展开就等于什么都没审——
-    这是分节结构下最容易出现的假阴性（loop2-r1 跑题者实测反馈）。
+    这是分节结构下最容易出现的假阴性（分节论文曾因此漏审）。
     """
     import re as _re
     global INPUT_RE

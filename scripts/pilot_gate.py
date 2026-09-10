@@ -70,20 +70,24 @@ def validate_pilot_results(payload: object) -> list[str]:
 
         budget = question_protocol.get("budget_seconds")
         if budget is None:
-            notes.append(f"{question_key} 时间预算未声明：跳过 budget_seconds 核验")
+            errors.append(f"{question_key}.protocol.budget_seconds 必须声明")
         elif isinstance(budget, bool) or not isinstance(budget, (int, float)) or budget < 0:
             errors.append(f"{question_key}.protocol.budget_seconds 必须是非负数字")
             budget = None
 
         splits: list[str] = []
         metric_names: list[str] = []
-        has_baseline = False
+        result_names: set[str] = set()
+        baseline_count = 0
+        nonbaseline_count = 0
         ran_ok = False
         for index, candidate in enumerate(candidates, 1):
             if not isinstance(candidate, dict):
                 errors.append(f"{question_key} 候选 {index} 不是对象")
                 continue
             name = str(candidate.get("name", "")).strip()
+            if name:
+                result_names.add(name.casefold())
             if not name or name.casefold() not in allowed_names:
                 errors.append(f"{question_key} 候选 {name or index} 不属于本轮协议")
             try:
@@ -96,7 +100,9 @@ def validate_pilot_results(payload: object) -> list[str]:
             else:
                 metric_names.append(metric_name.strip().casefold())
             if candidate.get("is_baseline") is True:
-                has_baseline = True
+                baseline_count += 1
+            else:
+                nonbaseline_count += 1
             seconds = candidate.get("seconds")
             if isinstance(seconds, bool) or not isinstance(seconds, (int, float)) or seconds < 0:
                 errors.append(f"{question_key} 候选 {name or index} 的 seconds 必须是非负数字")
@@ -114,8 +120,13 @@ def validate_pilot_results(payload: object) -> list[str]:
                     errors.append(f"{question_key} 候选 {name or index} ran_ok=false 时必须记录 failure")
         if splits and any(split != splits[0] for split in splits[1:]):
             errors.append(f"{question_key} 的所有候选必须使用完全相同的数据划分")
-        if not has_baseline:
-            errors.append(f"{question_key} 必须有一个候选标记 is_baseline: true")
+        if baseline_count != 1:
+            errors.append(f"{question_key} 必须恰好有一个候选标记 is_baseline: true")
+        if nonbaseline_count < 2:
+            errors.append(f"{question_key} 至少需要 2 个非 baseline 候选才能构成对比")
+        missing_results = sorted(allowed_names - result_names)
+        if missing_results:
+            errors.append(f"{question_key} 协议候选在结果中缺失：{', '.join(missing_results)}")
         if metric_names and any(metric != metric_names[0] for metric in metric_names[1:]):
             errors.append(f"{question_key} 的所有候选必须报告同一个 metric_name")
         if not ran_ok:

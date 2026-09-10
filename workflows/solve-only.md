@@ -1,16 +1,25 @@
-# 只求解，暂不写论文：P0 → P4
+# 只求解，暂不写论文：P-1a → P4
 
 必读：`rules/modeling-redlines.md`、`rules/execution-discipline.md`
 
 用在「先做问题一」「只要模型、代码和结果」「论文回头再说」这类分阶段请求上。
-**不进 P5–P7**，但 P0–P4 的纪律一条不减——恰恰是这类请求最容易丢掉它们。
+**不进 P5–P7**，但 P-1a 到 P4 的纪律一条不减——恰恰是这类请求最容易丢掉它们。
 
 为什么不能落到通用流程：拆问卡、Pilot、独立神谕测试、证书与冻结是**后面写论文时无法补做**的。
 数字一旦在没有这些纪律的情况下算出来，之后再写论文就只能拿它当既成事实。
 
+## 前置规格关
+
+1. 先照 `workflows/solve-full.md` 完成 **P-1a**：写 PRD、按设计树前沿澄清并过打磨关，运行
+   `python scripts/prd_gate.py 结果/PRD.md --out 结果/gates/G-0-PRD.md`，退出码必须为 0。
+2. 再完成 **P-1b**：逐问写建模详要，运行
+   `python scripts/design_gate.py 结果/建模详要.md --out 结果/gates/G-1-建模详要.md`，退出码必须为 0。
+3. Modeler 按完整流程做执行前规格复核；只有明确交出「无异议，可执行」，Coder 才能进入 P0。
+
 ## 与完整求解的关系
 
-P0–P4 的每一步都照 `workflows/solve-full.md` 执行，**不做简化**。本文件只说明差异：
+P-1a、P-1b、执行前规格复核以及 P0–P4 都照 `workflows/solve-full.md` 执行，**不做简化**。
+本文件只说明差异：
 
 | 项 | 本流程 |
 |---|---|

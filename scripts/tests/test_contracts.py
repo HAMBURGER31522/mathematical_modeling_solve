@@ -165,6 +165,19 @@ def test_task_cards_requires_all_fields_and_predates_ledger():
         io.open(ledger, "w", encoding="utf-8").write("{}")
         code, out, err = run("task_cards.py", "--cards", cards, "--ledger", ledger)
         assert code == 0, out + err
+        stamped = json.load(io.open(ledger, encoding="utf-8"))
+        assert stamped.get("__meta__", {}).get("task_cards_sha256"), \
+            "空账本首次通过时未写入拆问卡契约哈希"
+
+        tex = os.path.join(tmp, "numbers.tex")
+        for args in (
+            ("--validate", ledger),
+            ("--freeze", ledger),
+            ("--stale-check", ledger),
+            ("--emit-tex", ledger, "-o", tex),
+        ):
+            code, cmd_out, cmd_err = run("ledger.py", *args)
+            assert code == 0, "ledger 未忽略 __meta__：" + cmd_out + cmd_err
 
         io.open(cards, "w", encoding="utf-8").write(
             _task_cards_text(missing="validation_requirements")
@@ -175,7 +188,22 @@ def test_task_cards_requires_all_fields_and_predates_ledger():
         io.open(cards, "w", encoding="utf-8").write(_task_cards_text())
         os.utime(cards, (2_000_000_000, 2_000_000_000))
         code, out, _ = run("task_cards.py", "--cards", cards, "--ledger", ledger)
-        assert code != 0 and "早于" in out
+        assert code == 0, "内容未变时 touch 不应让规格失效：" + out
+
+        changed = _task_cards_text().replace(
+            "- validation_requirements: 已填写",
+            "- validation_requirements: 已改变",
+        )
+        io.open(cards, "w", encoding="utf-8").write(changed)
+        code, out, _ = run("task_cards.py", "--cards", cards, "--ledger", ledger)
+        assert code != 0 and ("哈希" in out or "失效" in out), \
+            "validation_requirements 内容变化后仍未判 stale：" + out
+
+        legacy = os.path.join(tmp, "legacy.json")
+        io.open(cards, "w", encoding="utf-8").write(_task_cards_text())
+        io.open(legacy, "w", encoding="utf-8").write('{"existing-result": {}}')
+        code, out, _ = run("task_cards.py", "--cards", cards, "--ledger", legacy)
+        assert code != 0 and "旧格式" in out, "非空旧账本缺契约哈希时没有给迁移提示：" + out
 
 
 def _pilot_payload():
@@ -185,7 +213,8 @@ def _pilot_payload():
             "questions": {
                 "ques1": {
                     "budget_seconds": 30,
-                    "candidates": [{"name": "基线"}, {"name": "候选模型"}],
+                    "candidates": [{"name": "基线"}, {"name": "候选模型"},
+                                   {"name": "候选模型乙"}],
                 },
             },
         },
@@ -197,6 +226,9 @@ def _pilot_payload():
                     {"name": "候选模型", "is_baseline": False, "data_split": split,
                      "metric_name": "MAE", "seconds": 12, "ran_ok": False,
                      "failure": "数值求解未收敛"},
+                    # baseline 不计入「至少 2 个」：对比至少要有两个挑战者
+                    {"name": "候选模型乙", "is_baseline": False, "data_split": split,
+                     "metric_name": "MAE", "seconds": 9, "ran_ok": True},
                 ],
             },
         },
@@ -342,8 +374,8 @@ def test_figqa_expands_wildcard_tex_argument():
         assert "fig_used.png" not in {f["file"] for f in unref}
 
 
-# ------------------------------------------------- 体量地板契约（loop2-r3 事故）
-# r3 交出 4 张图 / 25 页，逐条满足了当时 skill 的全部硬条件，图表维仍判 0 分：
+# ------------------------------------------------- 体量地板契约（历史低体量事故）
+# 当时交出 4 张图 / 25 页，逐条满足了 skill 的全部硬条件，图表维仍判 0 分：
 # 地板定在「能交差」的档，拿到的就是能交差的东西。这几条锁住新档位。
 
 def test_figqa_blocks_too_few_figures():
@@ -734,7 +766,7 @@ def test_skill_smoke_catches_forgetting_errors():
 
 
 def test_refs_check_rejects_unverifiable_citations():
-    """无 DOI、空条目一律记 fail；离线只做结构检查；文件不存在是用法错误。"""
+    """无 DOI、空条目与离线 SKIP 都不得通过；文件不存在是用法错误。"""
     gate = os.path.join(ROOT, "scripts", "refs_check.py")
     with tempfile.TemporaryDirectory() as tmp:
         out = os.path.join(tmp, "r.md")
@@ -753,7 +785,9 @@ def test_refs_check_rejects_unverifiable_citations():
             "  doi = {10.1038/s41586-024-07780-8}" + chr(10) + "}" + chr(10))
         r = subprocess.run([PY, gate, withdoi, "--out", out, "--offline"],
                            capture_output=True, env=ENV)
-        assert r.returncode == 0, r.stdout.decode("utf-8", "replace")
+        report = io.open(out, encoding="utf-8").read()
+        assert r.returncode == 1 and "SKIP" in report, \
+            "离线 DOI 未核验不得冒充通过：" + r.stdout.decode("utf-8", "replace")
 
         blank = os.path.join(tmp, "blank.bib")
         io.open(blank, "w", encoding="utf-8").write("")
@@ -989,8 +1023,8 @@ def test_published_skill_carries_no_lab_narrative():
         "待拍板": "评审阶段标记",
         "v0.2": "内部版本号",
         "落地顺序": "迁移计划，属实验室",
-        "loop2-r2": "实验轮次标识",
-        "loop3-r1": "实验轮次标识",
+        # 实验轮次标识改由 test_no_experiment_round_identifiers_survive_anywhere
+        # 用模式检测——枚举挡不住同类的下一个。
         "STATUS.md": "实验室运行态文件",
         "spec.md": "实验室契约文件",
         chr(70) + ":" + chr(92): "本机绝对路径（Windows）",
@@ -1135,10 +1169,30 @@ def test_solve_workflow_starts_with_a_spec_gate():
 
 
 def test_workflow_names_the_role_handoffs():
-    """每个阶段要写清是谁在做、交出什么——交接点没有产物就是口头传话。"""
+    """角色要有明确交接，且执行前规格复核与计算后科学红队不得重叠。"""
+    import re
+
     text = read_repo("workflows/solve-full.md")
     missing = [r for r in ROLES if r not in text]
     assert not missing, "工作流未标注角色: %s" % missing
+
+    p0 = text.index("## P0")
+    modeler_heads = list(re.finditer(r"^## .*Modeler.*$", text, re.M))
+    assert len(modeler_heads) == 1 and modeler_heads[0].start() < p0, \
+        "Modeler 必须在 P0 前完成唯一一次执行前规格复核"
+
+    p2 = text.index("## P2")
+    p3 = text.index("## P3", p2)
+    assert "Critic" not in text[p2:p3], "Critic 不得参与 P2 执行前选模"
+
+    critic_heads = re.findall(r"^## .*Critic.*$", text, re.M)
+    assert len(critic_heads) == 1 and critic_heads[0].startswith("## P4"), \
+        "Critic 的唯一正常入口必须是计算完成后的 P4"
+
+    readme = read_repo("README.md")
+    stage_table = readme.split("| # | 阶段", 1)[1].split(chr(10) + chr(10), 1)[0]
+    assert stage_table.index("**Coder**") < stage_table.index("**Critic**"), \
+        "README 阶段表必须先实现与计算，再由 Critic 做 P4 科学证伪"
 
 
 def test_workflow_stays_model_agnostic():
@@ -1164,10 +1218,22 @@ def test_workflow_stays_model_agnostic():
 
 def test_opening_config_carries_the_role_assignment():
     """角色→模型的映射是可改配置，必须在 开题.md 里，且覆盖全部角色。"""
+    import re
+
     text = read_repo("开题.md")
     assert "角色" in text, "开题.md 缺角色分配段"
     missing = [r for r in ROLES if r not in text]
     assert not missing, "开题.md 的角色分配缺: %s" % missing
+    assert re.search(r'Modeler:.*?model:\s*"Codex astra".*?reasoning:\s*"medium"', text), \
+        "Modeler 默认必须由 Astra medium 做执行前独立复核"
+    assert re.search(r'Coder:.*?model:\s*"Codex gpt-5\.6-sol".*?reasoning:\s*"max"', text), \
+        "Coder 必须继续由 GPT-5.6 Sol max 完成建模实现与计算"
+
+    readme = read_repo("README.md")
+    assert re.search(r"\|\s*\*\*Modeler\*\*.*astra.*medium", readme, re.I), \
+        "README 的 Modeler 推荐与开题配置不一致"
+    assert re.search(r"\|\s*\*\*Coder\*\*.*gpt-5\.6-sol.*max", readme, re.I), \
+        "README 的 Coder 推荐与开题配置不一致"
 
 
 def test_readme_counts_match_the_repository():
@@ -1312,9 +1378,12 @@ def test_design_gate_enforces_per_question_completeness():
         io.open(path, "w", encoding="utf-8").write(body)
         return path
 
+    # 每节内容必须彼此不同：十节逐字相同另有专测判死，不能拿它当绿色基准
     full = "# 建模详要" + chr(10) + chr(10) + "## 问题一" + chr(10)
-    for section in DESIGN_SECTIONS:
-        full += "### " + section + chr(10) + "采用线性回归，令 $x=1$，足够下游据以执行。" + chr(10)
+    for _i, section in enumerate(DESIGN_SECTIONS, 1):
+        full += ("### " + section + chr(10)
+                 + "第 %d 项：采用线性回归拟合 d%d.csv，阈值 0.0%d，见第 %d 页。"
+                 % (_i, _i, _i, _i) + chr(10))
 
     with tempfile.TemporaryDirectory() as tmp:
         out = os.path.join(tmp, "g.md")
@@ -1327,7 +1396,8 @@ def test_design_gate_enforces_per_question_completeness():
         assert r.returncode == 1, "缺一项内容未被判死"
 
         empty = make(tmp, "empty.md",
-                     full.replace("采用线性回归，令 $x=1$，足够下游据以执行。" + chr(10), "", 1))
+                     full.replace("第 1 项：采用线性回归拟合 d1.csv，阈值 0.01，见第 1 页。"
+                                  + chr(10), "", 1))
         r = subprocess.run([PY, gate, empty, "--out", out], capture_output=True, env=ENV)
         assert r.returncode == 1, "有标题无内容未被判死"
 
@@ -1395,7 +1465,7 @@ def test_pilot_gate_enforces_candidate_baseline_metric_budget_and_failure_record
         no_budget["protocol"]["questions"]["ques1"].pop("budget_seconds")
         io.open(result_path, "w", encoding="utf-8").write(json.dumps(no_budget, ensure_ascii=False))
         code, out, err = run("pilot_gate.py", "--results", result_path)
-        assert code == 0 and "时间预算未声明" in out, out + err
+        assert code == 1 and "budget_seconds" in out, out + err
 
 
 def test_latex_gate_blocks_missing_numbers_macro_injection():
@@ -1566,6 +1636,420 @@ def test_spec_gate_uses_frontier_rounds_not_one_at_a_time():
         assert token in head, "P-1a 的提问方式缺「%s」（%s）" % (token, why)
     assert "一次只问一个" not in head, \
         "「一次只问一个」是前沿模型的退化情形，应改为按轮次问完整个前沿"
+
+
+# =============================================== v3.4 复审缺口（先红后绿）
+
+def test_solve_only_runs_the_spec_phase_too():
+    """只求解也要先过规格关——否则「先做问题一」成了绕过 SDD 的后门。
+
+    实测：solve-only.md 的标题与流程都从 P0 起，P-1a/P-1b 一个字没有。
+    写论文时补不回来的恰恰是规格：数字先算出来，验收标准只能反过来迁就它。
+    """
+    text = read_repo("workflows/solve-only.md")
+    for token in ("P-1a", "P-1b"):
+        assert token in text, "solve-only 未经过规格关 %s，等于给 SDD 开后门" % token
+    assert "design_gate.py" in text, "solve-only 未要求建模详要过门禁"
+
+
+def test_prd_gate_rejects_unresolved_and_unjudgeable_requirements():
+    """规格关必须是退出码。
+
+    PRD 现在只有散文约束（「答不上来的条目不许留在 PRD 里」），没有任何命令能判它。
+    门禁要挡三样：待定项未清零、完成标准没有判定命令、需求没有编号无法被逐条引用。
+    """
+    gate = os.path.join(ROOT, "scripts", "prd_gate.py")
+    assert os.path.isfile(gate), "缺 scripts/prd_gate.py：规格关仍是散文，不是退出码"
+
+    good = chr(10).join([
+        "# PRD",
+        "",
+        "## 目标",
+        "在 48 h 内给出问题一至问题三的可复现解，论文 20-25 页。",
+        "",
+        "## 边界",
+        "不做问题四；不引入附件之外的数据源。",
+        "",
+        "## 完成标准",
+        "| 编号 | 完成标准 | 怎么算过 | 谁来判 | 判定命令 |",
+        "|---|---|---|---|---|",
+        "| R1 | 问题一给出唯一答案 | certify 判 feasible | Auditor | `python scripts/certify.py --k 36108 --n 40000 --threshold 0.90` |",
+        "| R2 | 论文可编译 | latexmk 退出码 0 | Finisher | `python scripts/latex_gate.py` |",
+        "",
+        "## 待定项",
+        "无。",
+        "",
+    ])
+
+    def run_gate(tmp, name, body):
+        path = os.path.join(tmp, name)
+        io.open(path, "w", encoding="utf-8").write(body)
+        r = subprocess.run([PY, gate, path, "--out", os.path.join(tmp, "g.md")],
+                           capture_output=True, env=ENV)
+        return r.returncode, r.stdout.decode("utf-8", "replace")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        code, out = run_gate(tmp, "PRD.md", good)
+        assert code == 0, "合格 PRD 被判死：" + out
+
+        code, _ = run_gate(tmp, "pending.md", good.replace(
+            "## 待定项" + chr(10) + "无。",
+            "## 待定项" + chr(10) + "- 问题二用哪种口径待定"))
+        assert code == 1, "待定项未清零仍放行：规格没写死就开工"
+
+        code, _ = run_gate(tmp, "nocmd.md", good.replace(
+            "| R2 | 论文可编译 | latexmk 退出码 0 | Finisher | `python scripts/latex_gate.py` |",
+            "| R2 | 论文质量好 | 看起来没问题 | 大家 | 人工判断 |"))
+        assert code == 1, "完成标准没有判定命令仍放行：等于没有验收标准"
+
+        code, _ = run_gate(tmp, "noid.md",
+                           good.replace("| R1 |", "|  |").replace("| R2 |", "|  |"))
+        assert code == 1, "需求无编号仍放行：后续无法逐条引用与追溯"
+
+
+def test_design_gate_rejects_sections_that_repeat_one_sentence():
+    """十节写同一句话，是「看起来齐全」的最后一种形态。
+
+    实测：十个小节填入完全相同的一句
+    「用线性回归拟合 data.csv，阈值 0.05，预计 3 h 内完成，见第 2 页。」——
+    有具体物、长度达标、不含空洞短语，design_gate.py 退出 0。
+    小节名各不相同、内容却可以逐字相同，说明检查根本没看小节之间的差异。
+    """
+    gate = os.path.join(ROOT, "scripts", "design_gate.py")
+    same = "用线性回归拟合 data.csv，阈值 0.05，预计 3 h 内完成，见第 2 页。"
+    text = "# 建模详要" + chr(10) + chr(10) + "## 问题一" + chr(10)
+    for section in DESIGN_SECTIONS:
+        text += "### " + section + chr(10) + same + chr(10)
+    with tempfile.TemporaryDirectory() as tmp:
+        path = os.path.join(tmp, "dup.md")
+        io.open(path, "w", encoding="utf-8").write(text)
+        r = subprocess.run([PY, gate, path, "--out", os.path.join(tmp, "g.md")],
+                           capture_output=True, env=ENV)
+        assert r.returncode == 1, "十节逐字相同仍判过：门禁没看小节之间的差异"
+
+
+def test_pilot_gate_requires_baseline_plus_two_and_full_protocol_coverage():
+    """选型对比要真的是对比。
+
+    实测三处漏：baseline 被计入「至少 2 个」，于是 baseline+1 就算比过了；
+    budget_seconds 缺失只记 NOTE，时间预算等于没要求；
+    协议里列出的候选可以整行从结果中消失，只留下好看的那个。
+    """
+    payload = _pilot_payload()
+    with tempfile.TemporaryDirectory() as tmp:
+        path = os.path.join(tmp, "pilot_results.json")
+
+        def check(mutate, why):
+            data = json.loads(json.dumps(payload, ensure_ascii=False))
+            mutate(data)
+            io.open(path, "w", encoding="utf-8").write(json.dumps(data, ensure_ascii=False))
+            code, out, err = run("pilot_gate.py", "--results", path)
+            assert code != 0, why + "：仍被放行" + chr(10) + out + err
+
+        def only_one_challenger(d):
+            cands = d["questions"]["ques1"]["candidates"]
+            keep = [c for c in cands if c.get("is_baseline")][:1]
+            keep += [c for c in cands if not c.get("is_baseline")][:1]
+            d["questions"]["ques1"]["candidates"] = keep
+        check(only_one_challenger, "baseline+1 不构成对比")
+
+        def drop_budget(d):
+            d["protocol"]["questions"]["ques1"].pop("budget_seconds", None)
+        check(drop_budget, "缺时间预算")
+
+        def hide_a_candidate(d):
+            d["questions"]["ques1"]["candidates"] = d["questions"]["ques1"]["candidates"][:-1]
+        check(hide_a_candidate, "协议列出的候选在结果里消失")
+
+
+def test_sample_gate_fails_when_nothing_constrains_a_wide_interval():
+    """文档把区间宽度写成检查项，实现只记 NOTE——这是它自己否定自己。
+
+    阈值场景的 feasible/excluded 各有单侧夹逼兜底，宽一点可以只提示；
+    但没有阈值的场景、以及 verdict=intermediate 的场景没有任何东西约束区间，
+    这正是「跑了两万样本仍分辨不出 615 和 616」的形态。那里必须是退出码 1。
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        path = os.path.join(tmp, "scenarios.json")
+
+        def judge(scn):
+            io.open(path, "w", encoding="utf-8").write(json.dumps(
+                {"scenarios": [scn], "n_floor": 100}, ensure_ascii=False))
+            return run("sample_gate.py", "--scenarios", path, "--n-floor", 100,
+                       "--report", os.path.join(tmp, "o.json"))
+
+        code, out, err = judge({"scenario_id": "S1", "k": 50, "n": 100,
+                                "resolution": 0.01, "verdict": "intermediate"})
+        assert code == 1, "无阈值场景区间过宽仍判过：" + out + err
+
+        code, out, err = judge({"scenario_id": "S1", "k": 50000, "n": 100000,
+                                "resolution": 0.5, "verdict": "intermediate"})
+        assert code == 0, "区间已足够窄却判死：" + out + err
+
+
+def test_refs_check_offline_is_not_a_pass():
+    """文档写着「SKIP 不是通过」，退出码却说是。
+
+    --offline 下只要有 DOI 就记 SKIP、不计入 failed，最终退出 0。
+    离线跑一遍就拿到绿灯，是引用核验里最贵的一种假通过。
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        bib = os.path.join(tmp, "refs.bib")
+        io.open(bib, "w", encoding="utf-8").write(
+            "@article{a2020, title={Something}, doi={10.1000/xyz123}}" + chr(10))
+        code, out, err = run("refs_check.py", bib, "--offline",
+                             "--out", os.path.join(tmp, "o.md"))
+        assert code != 0, "离线未核验却退出 0：SKIP 冒充了通过" + chr(10) + out + err
+
+
+def test_refs_check_parses_the_form_the_template_actually_emits():
+    """解析器只认 newblock 结构，模板发出来的却是 bibitem{标签} 作者. 题名. 出版信息.
+
+    结果是：按本仓模板写出来的参考文献，标题一律抽成空——
+    而标题比对正是识破编造引用的那一步。核了个寂寞。
+    """
+    sys.path.insert(0, SCRIPTS)
+    try:
+        mod = importlib.import_module("refs_check")
+        importlib.reload(mod)
+    finally:
+        sys.path.remove(SCRIPTS)
+    bibitem = chr(92) + "bibitem"
+    with tempfile.TemporaryDirectory() as tmp:
+        tex = os.path.join(tmp, "9.参考文献.tex")
+        io.open(tex, "w", encoding="utf-8").write(chr(10).join([
+            chr(92) + "begin{thebibliography}{99}",
+            bibitem + "{behzadian2012topsis} Behzadian M. A state-of-the-art survey of "
+            "TOPSIS applications. Expert Systems with Applications, 2012. "
+            "doi:10.1016/j.eswa.2012.02.056",
+            chr(92) + "end{thebibliography}",
+        ]))
+        entries = mod.parse_entries(tex)
+        assert len(entries) == 1, "模板形态解析不出条目：%r" % (entries,)
+        _head, doi, title = entries[0]
+        assert doi == "10.1016/j.eswa.2012.02.056", "DOI 抽取失败：%r" % (doi,)
+        assert title and "TOPSIS" in title, \
+            "模板形态抽不出标题，标题比对形同虚设：%r" % (title,)
+
+
+def test_refs_check_points_at_the_reference_file_that_exists():
+    """脚本用法示例指向 10.参考文献.tex，但仓里 10 号是附录，参考文献是 9 号。"""
+    src = read_repo("scripts/refs_check.py")
+    assert "9.参考文献.tex" in src, "refs_check 用法示例未指向真实的 9.参考文献.tex"
+    assert "10.参考文献.tex" not in src, "refs_check 仍指向不存在的 10.参考文献.tex"
+
+
+def test_reference_section_contract_promises_only_what_is_checked():
+    """模板合同承诺「DOI 与标题、作者、期刊逐条过 refs_check」，脚本只核 DOI 与标题。
+
+    承诺与执行体不一致时只有两条出路：把承诺缩回去，或把检查补上。
+    这里选补上——Crossref 本来就返回 author 与 container-title。
+    """
+    src = read_repo("scripts/refs_check.py")
+    assert "container-title" in src, "refs_check 未核验期刊/载体，模板合同却承诺了"
+    assert "author" in src, "refs_check 未核验作者，模板合同却承诺了"
+
+    sys.path.insert(0, SCRIPTS)
+    try:
+        mod = importlib.import_module("refs_check")
+        mod = importlib.reload(mod)
+    finally:
+        sys.path.remove(SCRIPTS)
+    record = mod.ReferenceRecord(
+        "entry", "10.1/example", "A title", ("Behzadian",),
+        "Expert Systems with Applications",
+    )
+    message = {
+        "author": [{"family": "Behzadian"}],
+        "container-title": ["Expert Systems with Applications"],
+    }
+    assert mod._author_match(record, message)[0] is True
+    assert mod._container_match(record, message)[0] is True
+    assert mod._author_match(record, {**message, "author": [{"family": "Other"}]})[0] is False
+    assert mod._container_match(record, {**message, "container-title": ["Other Journal"]})[0] is False
+
+
+def test_paper_master_keeps_the_upstream_pagebreaks():
+    """Mrite 论文.tex:74,78 在参考文献与附录前各有一个分页，本仓 main.tex 删掉了。
+
+    这是第五处未声明的模板差异。用户的要求是「基本模板变动不了」，
+    未声明的漂移就是变动——无论它看起来多小。
+    """
+    text = read_repo("assets/paper/main.tex")
+    newpage = chr(92) + "newpage"
+    for target in ("9.参考文献.tex", "10.附录.tex"):
+        needle = chr(92) + "input{" + target + "}"
+        assert needle in text, "main.tex 未 input " + target
+        before = text[:text.index(needle)]
+        assert newpage in before[-140:], (
+            target + " 之前缺 Mrite 原有的 newpage（未声明的模板漂移）")
+
+
+def test_writing_contract_admits_the_exceptions_its_own_templates_require():
+    """全文合同说「禁分点符号、禁 textbf」，同一个文件的本节合同却要求 itemize + textbf。
+
+    模板照抄 Mrite 不动是对的；自相矛盾的是那句全局禁令没有承认本节合同可以开例外。
+    改合同，不改模板。
+    """
+    for name in ("3.模型假设.tex", "6.模型检验.tex", "7.模型评价.tex"):
+        text = read_repo("assets/paper/" + name)
+        head = text.split("── 本节合同 ──")[0]
+        assert "例外" in head, (
+            name + " 的全局禁令没有承认本节合同可开例外，与本文件下半段自相矛盾")
+
+
+def test_attribution_states_what_was_actually_copied():
+    """来源说明必须与仓库实际内容一致，否则它是许可风险，不是文档瑕疵。
+
+    实测四处不符：
+      1. Mrite 被列在「未复制任何文本」下，实际 format.cls 与 16 个 tex 是逐字复制；
+      2. 声称字体来自 Mrite——Mrite 仓 713aa65 根本没有 fonts/ 目录；
+      3. 「有意差异三处」，实际约定的是四处；
+      4. 仍宣称合入了「每 Gate ≤2 轮、全程 ≤8 轮」，而 loop 预算早已移除。
+    """
+    text = read_repo("ATTRIBUTION.md")
+    head = "未复制任何文本"
+    if head in text:
+        section = text.split(head, 1)[1].split(chr(10) + "## ", 1)[0]
+        assert "Mrite" not in section, "Mrite 是逐字复制，不能列在「未复制任何文本」下"
+    assert "OFL" in text, "随仓分发的思源宋体是 SIL OFL 1.1，来源与许可必须写明"
+    assert "差异三处" not in text and "三处有意差异" not in text, \
+        "有意差异是四处（六小节检验章、缺陷—影响—改进、sec:appendix、numbers 注入位）"
+    assert "8 轮" not in text, "loop 预算已移除，来源说明仍在宣称合入了它"
+
+
+def test_redistributed_fonts_carry_their_license():
+    """OFL 1.1 要求随分发附带许可正文。仓里有两份思源宋体，却没有任何许可文件。"""
+    fonts = os.path.join(ROOT, "assets", "paper", "fonts")
+    names = [n.lower() for n in os.listdir(fonts)]
+    assert any(n.endswith(".otf") for n in names), "fonts/ 里没有字体，本测试的前提不成立"
+    assert any("ofl" in n or "license" in n for n in names), \
+        "随仓分发 OFL 字体但未附许可正文：这是许可义务，不是文档瑕疵"
+
+
+def test_independence_is_defined_the_same_way_everywhere():
+    """solve-full 说「一人兼所有角色」，roles 说「唯一不能兼的是 Critic 与 Auditor」。
+
+    两句都在任务路径上，读到哪句全看运气。必须合成一句：
+    默认新会话/新 agent；做不到就只能标记 independence degraded，不得声称完成了独立审查。
+    """
+    flow = read_repo("workflows/solve-full.md")
+    assert "degraded" in flow, "solve-full 未说明单会话兼任时独立审查如何降级标记"
+    if "兼所有角色" in flow:
+        window = flow.split("兼所有角色", 1)
+        near = window[0][-200:] + window[1][:200]
+        assert "Critic" in near or "Auditor" in near or "除" in near, \
+            "solve-full 的「一人兼所有角色」没有排除 Critic/Auditor，与 roles.md 冲突"
+
+
+def test_gitignore_covers_the_runtime_directories_the_scripts_create():
+    """根白名单测试声称这四个目录「已在 .gitignore 里」——实际一个都没有。
+
+    实测：跑一次 design_gate.py 就在仓根生成了「结果/」，git status 立刻脏。
+    要么忽略它们，要么别在注释里声称已经忽略。
+    """
+    ignore = read_repo(".gitignore")
+    for d in ("结果", "图", "论文", "求解"):
+        assert d in ignore, ".gitignore 未忽略运行期目录 %s/，而白名单测试声称已忽略" % d
+
+
+def test_no_experiment_round_identifiers_survive_anywhere():
+    """「已去实验轮次标识」只枚举了两个 token，于是漏掉了三个。
+
+    实测残留三处：audit_numbers.py:106 的括注、latex_gate.py:133 的行内注释、
+    本文件第 345 行的分节标题。枚举挡不住同类的下一个，改用模式；
+    本 docstring 刻意不写出完整 token——检测器不豁免自己。
+    """
+    # 分段拼装：检测器的源码本身不该含有会被自己命中的完整 token
+    pattern = re.compile("loop" + r"[0-9a-z]*[-_]?r[0-9]" + "|" + "loop" + "mw", re.I)
+    offenders = []
+    for dirpath, dirnames, filenames in os.walk(ROOT):
+        dirnames[:] = [d for d in dirnames if d not in (".git", "__pycache__", "fonts")]
+        for name in filenames:
+            if not name.endswith((".md", ".py", ".yaml", ".tex", ".json")):
+                continue
+            p = os.path.join(dirpath, name)
+            try:
+                body = io.open(p, encoding="utf-8").read()
+            except (UnicodeDecodeError, OSError):
+                continue
+            for m in pattern.finditer(body):
+                line = body[:m.start()].count(chr(10)) + 1
+                offenders.append("%s:%d %s" % (os.path.relpath(p, ROOT), line, m.group(0)))
+    assert not offenders, "实验轮次标识残留：" + "; ".join(offenders)
+
+
+def test_optional_algorithm_router_pointer_resolves():
+    """ATTRIBUTION 说「查找与降级顺序见 SKILL.md P2 节」——SKILL.md 里没有 P2。
+
+    死指针比没有指针更糟：它让读者以为规则写在别处，于是两边都没写。
+    要么把那条可选调用写进 P2，要么别声称它存在。
+    """
+    attribution = read_repo("ATTRIBUTION.md")
+    if "math-model-resource-router" not in attribution:
+        return
+    assert "SKILL.md P2" not in attribution, "指针指向 SKILL.md，但 P2 在 workflows/solve-full.md"
+    flow = read_repo("workflows/solve-full.md")
+    assert "## P2" in flow, "工作流里没有 P2，ATTRIBUTION 的指针无处可指"
+    p2 = flow.split("## P2", 1)[1].split(chr(10) + "## ", 1)[0]
+    assert "算法" in p2 and ("N/A" in p2 or "自研" in p2), \
+        "P2 未写外部算法资源库的可选调用与不可用时的降级，ATTRIBUTION 的指针是死的"
+
+
+def test_task_card_freeze_uses_a_content_hash_not_a_timestamp():
+    """用 mtime 证明「规格先于实现」，复制一次、checkout 一次、touch 一次就翻转。
+
+    规格是否被改动，应当由内容说了算：把规范化后的 validation_requirements
+    做哈希写进 ledger，冻结与 stale 都比对它。
+    """
+    src = read_repo("scripts/task_cards.py")
+    assert "sha256" in src.lower(), "拆问卡冻结仍靠时间戳，内容哈希才防得住复制与 touch"
+
+
+def test_template_provenance_is_pinned_and_diffs_are_enumerated():
+    """「模板不许改」现在只是散文，于是两个分页悄悄漂走了没人发现。
+
+    钉一个 provenance lock：上游 commit、不可变文件哈希、允许的差异清单。
+    它不进运行上下文，只在契约测试里判死。
+    """
+    import hashlib
+    lock_path = os.path.join(ROOT, "assets", "paper", "template-provenance.json")
+    assert os.path.isfile(lock_path), "缺 assets/paper/template-provenance.json：模板来源未钉死"
+    lock = json.loads(io.open(lock_path, encoding="utf-8").read())
+    assert lock.get("upstream_commit"), "未记录上游 commit"
+    assert lock.get("files"), "未记录不可变文件哈希"
+    assert len(lock.get("allowed_diffs", [])) == 4, "允许的差异应当恰好枚举四处"
+    drift = []
+    for rel, expected in lock["files"].items():
+        p = os.path.join(ROOT, "assets", "paper", rel)
+        if not os.path.isfile(p):
+            drift.append(rel + "（缺失）")
+            continue
+        got = hashlib.sha256(io.open(p, "rb").read()).hexdigest()
+        if got != expected:
+            drift.append("%s（%s ≠ %s）" % (rel, got[:12], expected[:12]))
+    assert not drift, "模板相对上游发生了未声明的漂移：" + "; ".join(drift)
+
+
+def test_readme_links_the_workflow_instead_of_restating_it():
+    """README 复述规范句，于是它自己漂了：P-1 那段还写着「一次问一个」。
+
+    唯一真相在 workflows/solve-full.md。README 保留架构与阶段表，规则只给链接。
+    """
+    text = read_repo("README.md")
+    assert "一次问一个" not in text and "一次只问一个" not in text, \
+        "README 仍在复述已被取代的提问方式（当前是设计树+前沿+轮次）"
+    assert "P-1a" in text and "P-1b" in text, "README 未同步 P-1 拆分为 P-1a/P-1b"
+    assert "grilling" in text, \
+        "README 链接的 grill-me/SKILL.md 只有 7 行指针，真正实现是 grilling"
+
+
+def test_review_record_carries_independence_metadata():
+    """「请保持独立」不可核。三个字段就能核：谁审的、他写过哪些阶段、独立性等级。"""
+    roles = read_repo("references/roles.md")
+    for field in ("reviewer_session", "authored_stages", "independence"):
+        assert field in roles, "审查记录缺 %s 字段，独立性无法被核对" % field
+
 
 
 if __name__ == "__main__":

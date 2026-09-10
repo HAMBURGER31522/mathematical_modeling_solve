@@ -6,15 +6,16 @@
 
 用法：
     python scripts/refs_check.py 论文/refs.bib --out 结果/参考文献核验.md
-    python scripts/refs_check.py 论文/10.参考文献.tex --out 结果/参考文献核验.md
+    python scripts/refs_check.py 论文/9.参考文献.tex --out 结果/参考文献核验.md
 
 退出码：0 = 全部可核验；1 = 存在查无此文或标题不符的条目；2 = 用法/网络错误。
 无网络时用 --offline 只做结构检查（缺 DOI 的条目照样记 FAIL）；SKIP 不是通过。
-`.tex` 仅从标准 `\newblock <标题>.\newblock` 结构提取标题；其他手写格式会保留
-空标题，仍核 DOI 存在性但无法做标题比对。
+`.tex` 同时支持标准 `\newblock` 和本仓模板的单行 `\bibitem{标签} 作者. 题名. 出版信息.`。
+作者、标题或载体证据缺失时明确记为 UNVERIFIED，不静默放行。
 纯标准库。
 """
 import argparse
+from dataclasses import dataclass
 import json
 import os
 import re
@@ -27,6 +28,63 @@ import urllib.request
 CROSSREF = "https://api.crossref.org/works/"
 UA = "math-modeling-solve/refs_check (mailto:anonymous@example.org)"
 DOI_RE = re.compile(r"10\.\d{4,9}/[-._;()/:A-Za-z0-9]+")
+
+
+@dataclass(frozen=True)
+class ReferenceRecord:
+    head: str
+    doi: str
+    title: str
+    authors: tuple[str, ...] = ()
+    container: str = ""
+
+
+def _clean_doi(match):
+    return match.group(0).rstrip(".,;:)]}") if match else ""
+
+
+def _bib_field(block, name):
+    match = re.search(
+        rf"\b{name}\s*=\s*(?:\{{([^}}]*)\}}|\"([^\"]*)\")",
+        block, re.S | re.I,
+    )
+    return (match.group(1) or match.group(2) or "").strip() if match else ""
+
+
+def _surname_list(text):
+    surnames = []
+    for person in re.split(r"\s+and\s+|;", text or "", flags=re.I):
+        person = re.sub(r"\s+", " ", person).strip(" .,")
+        if not person:
+            continue
+        if "," in person:
+            surname = person.split(",", 1)[0].strip()
+        else:
+            words = person.split()
+            if len(words) >= 2 and re.fullmatch(r"[A-Z](?:\.)?", words[-1]):
+                surname = words[0]
+            else:
+                surname = words[-1]
+        if surname:
+            surnames.append(surname)
+    return tuple(surnames)
+
+
+def _strip_tex(text):
+    text = re.sub(r"\\(?:emph|textit|textbf|textrm)\{([^{}]*)\}", r"\1", text)
+    text = re.sub(r"\\[A-Za-z]+(?:\s|\{\})?", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _clean_title(text):
+    text = _strip_tex(text).strip().strip("{} ")
+    text = re.split(r"(?<=[.!?])\s|\s+doi\s*:", text, maxsplit=1, flags=re.I)[0]
+    return text.rstrip(".。 ")
+
+
+def _clean_container(text):
+    text = _strip_tex(text)
+    return re.sub(r"\b(?:19|20)\d{2}\b.*$", "", text).strip(" .,:;，；")
 
 
 def norm(text):
@@ -60,7 +118,12 @@ def _tex_bibitem_title(item):
     """Extract the title from the common ``author\newblock title\newblock`` layout."""
     blocks = re.split(r"\\newblock\b", item, maxsplit=2)
     if len(blocks) < 2:
-        return ""
+        clean = _strip_tex(item)
+        clean = re.sub(r"\s*doi\s*:\s*10\.\d{4,9}/\S+", "", clean, flags=re.I).strip()
+        parts = [part.strip() for part in re.split(
+            r"(?<=[.!?。！？])\s+(?=[A-Z\u4e00-\u9fff])", clean
+        ) if part.strip()]
+        return _clean_title(parts[1] if len(parts) >= 2 else "")
     title = blocks[1].strip()
     title = re.sub(r"\\(?:emph|textit|textbf|textrm)\{([^{}]*)\}", r"\1", title)
     title = re.sub(r"\s+", " ", title).strip().strip("{} ")
@@ -68,10 +131,87 @@ def _tex_bibitem_title(item):
     return title.rstrip(".。 ")
 
 
+def _parse_tex_metadata(item):
+    """Return title, author surnames, and publication container for a bibitem."""
+    blocks = re.split(r"\\newblock\b", item, maxsplit=2)
+    if len(blocks) >= 2:
+        title = _tex_bibitem_title(item)
+        authors = _surname_list(_strip_tex(blocks[0]))
+        container = _clean_container(blocks[2] if len(blocks) > 2 else "")
+        return title, authors, container
+    clean = _strip_tex(item)
+    clean = re.sub(r"\s*doi\s*:\s*10\.\d{4,9}/\S+", "", clean, flags=re.I).strip()
+    parts = [part.strip() for part in re.split(
+        r"(?<=[.!?。！？])\s+(?=[A-Z\u4e00-\u9fff])", clean
+    ) if part.strip()]
+    if len(parts) >= 3:
+        return _clean_title(parts[1]), _surname_list(parts[0]), _clean_container(" ".join(parts[2:]))
+    if len(parts) == 2:
+        return _clean_title(parts[1]), _surname_list(parts[0]), ""
+    return "", (), ""
+
+
+def _parse_records(path):
+    """Parse .bib/.tex entries into records while preserving legacy tuple parsing."""
+    raw = open(path, encoding="utf-8", errors="replace").read()
+    records = []
+    if path.lower().endswith(".bib"):
+        for block in re.split(r"(?m)^@", raw):
+            if not block.strip() or "{" not in block:
+                continue
+            records.append(ReferenceRecord(
+                block.strip().split("\n")[0][:80],
+                _clean_doi(DOI_RE.search(block)),
+                _bib_field(block, "title"),
+                _surname_list(_bib_field(block, "author")),
+                (_bib_field(block, "journal") or _bib_field(block, "container-title")
+                 or _bib_field(block, "booktitle")),
+            ))
+    else:
+        for item in re.findall(
+            r"\\bibitem(?:\[[^\]]*\])?\{[^}]*\}(.+?)(?=\\bibitem|\\end\{thebibliography\}|\Z)",
+            raw, re.S,
+        ):
+            title, authors, container = _parse_tex_metadata(item)
+            records.append(ReferenceRecord(
+                " ".join(item.split())[:80], _clean_doi(DOI_RE.search(item)),
+                title, authors, container,
+            ))
+    return records
+
+
 def query(doi, timeout):
     req = urllib.request.Request(CROSSREF + urllib.parse.quote(doi), headers={"User-Agent": UA})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         return json.loads(resp.read().decode("utf-8"))["message"]
+
+
+def _author_match(record, message):
+    """Return (matched, note); None means local author evidence is absent."""
+    remote = [str(author.get("family", "")) for author in (message.get("author") or [])
+              if isinstance(author, dict) and author.get("family")]
+    if not record.authors:
+        return None, "作者证据缺失（UNVERIFIED）"
+    if not remote:
+        return False, "Crossref 未返回 author"
+    local = {norm(name) for name in record.authors if norm(name)}
+    if any(any(name in norm(family) or norm(family) in name for name in local)
+           for family in remote):
+        return True, "作者姓匹配"
+    return False, "作者姓不符"
+
+
+def _container_match(record, message):
+    remote_values = message.get("container-title") or []
+    remote = remote_values[0] if remote_values else ""
+    if not record.container:
+        return None, "载体证据缺失（UNVERIFIED）"
+    if not remote:
+        return False, "Crossref 未返回 container-title"
+    left, right = norm(record.container), norm(remote)
+    if left and (left in right or right in left):
+        return True, "载体匹配"
+    return False, "出版载体不符"
 
 
 def main():
@@ -87,19 +227,21 @@ def main():
         print("找不到参考文献文件：%s" % a.refs, file=sys.stderr)
         return 2
 
-    entries = parse_entries(a.refs)
-    if not entries:
+    records = _parse_records(a.refs)
+    if not records:
         print("未解析出任何参考文献条目——空检查一律记 fail，不是通过", file=sys.stderr)
         return 1
 
     rows, failed = [], 0
-    for head, doi, title in entries:
+    for record in records:
+        head, doi, title = record.head, record.doi, record.title
         if not doi:
             rows.append(("FAIL", head, "", "无 DOI，无法核验"))
             failed += 1
             continue
         if a.offline:
             rows.append(("SKIP", head, doi, "--offline，未联网核验"))
+            failed += 1
             continue
         try:
             msg = query(doi, a.timeout)
@@ -112,12 +254,23 @@ def main():
             print("网络错误：%s。可加 --offline 只做结构检查。" % exc, file=sys.stderr)
             return 2
         got = (msg.get("title") or [""])[0]
-        if title and norm(title) and norm(title) not in norm(got) and norm(got) not in norm(title):
-            rows.append(("FAIL", head, doi, "标题不符：文中「%s」↔ Crossref「%s」" % (title[:40], got[:40])))
+        mismatches = []
+        if not title:
+            mismatches.append("标题证据缺失（UNVERIFIED）")
+        elif norm(title) not in norm(got) and norm(got) not in norm(title):
+            mismatches.append("标题不符：文中「%s」↔ Crossref「%s」" % (title[:40], got[:40]))
+        author_ok, author_note = _author_match(record, msg)
+        if author_ok is not True:
+            mismatches.append(author_note)
+        container_ok, container_note = _container_match(record, msg)
+        if container_ok is not True:
+            mismatches.append(container_note)
+        year = ((msg.get("issued") or {}).get("date-parts") or [[""]])[0][0]
+        if mismatches:
+            rows.append(("FAIL", head, doi, "; ".join(mismatches)))
             failed += 1
         else:
-            year = ((msg.get("issued") or {}).get("date-parts") or [[""]])[0][0]
-            rows.append(("PASS", head, doi, "%s (%s)" % (got[:60], year)))
+            rows.append(("PASS", head, doi, "%s (%s); 作者姓匹配；载体匹配" % (got[:60], year)))
         time.sleep(a.sleep)
 
     os.makedirs(os.path.dirname(a.out) or ".", exist_ok=True)

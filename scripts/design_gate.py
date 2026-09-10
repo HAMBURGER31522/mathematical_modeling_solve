@@ -19,6 +19,7 @@
 纯标准库。
 """
 import argparse
+import difflib
 import os
 import re
 import sys
@@ -103,6 +104,12 @@ def has_concrete_object(block):
     return any(name.casefold() in folded for name in METHOD_NAMES)
 
 
+def _normalized_body(block):
+    """Normalize a section body for cross-section repetition checks."""
+    body = re.sub(r"^#{1,6}\s+.*$", "", block, flags=re.M)
+    return re.sub(r"[^\w\u4e00-\u9fff]+", "", body, flags=re.UNICODE)
+
+
 def audit(text, min_chars):
     problems, rows = [], []
     questions = split_questions(text)
@@ -117,6 +124,32 @@ def audit(text, min_chars):
         for j, m in enumerate(subs):
             end = subs[j + 1].start() if j + 1 < len(subs) else len(block)
             found[m.group(1).strip()] = block[m.end():end]
+
+        # A complete-looking design can still be one sentence copied ten
+        # times. Compare normalized bodies rather than maintaining a blacklist
+        # of every possible boilerplate sentence.
+        selected = []
+        for name in SECTIONS:
+            match = next((k for k in found if name in k), None)
+            if match is not None:
+                normalized = _normalized_body(found[match])
+                if normalized:
+                    selected.append((match, normalized))
+        repeated = False
+        for i, (left_name, left_body) in enumerate(selected):
+            for right_name, right_body in selected[i + 1:]:
+                if left_body == right_body or (
+                    min(len(left_body), len(right_body)) >= 30
+                    and difflib.SequenceMatcher(None, left_body, right_body).ratio() >= 0.92
+                ):
+                    problems.append(
+                        "%s 的「%s」与「%s」内容重复或高度雷同——请逐项展开"
+                        % (title, left_name, right_name)
+                    )
+                    repeated = True
+                    break
+            if repeated:
+                break
 
         for name in SECTIONS:
             match = next((k for k in found if name in k), None)

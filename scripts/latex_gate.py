@@ -130,7 +130,7 @@ def bib_missing(tex_path):
     walk(tex_path)
     blob = "\n".join(texts).replace("\\n", "")
     # 子串判定,不用正则:thebibliography 在 \begin{thebibliography} 里前面是 {,
-    # 带 \ 前缀的正则永远匹配不上(loopmw 实测假阳性根因)
+    # 对带反斜杠前缀的命令做子串判定，避免正则转义造成假阳性。
     has_bib = ("thebibliography" in blob
                or "参考文献" in blob
                or "bibliography{" in blob

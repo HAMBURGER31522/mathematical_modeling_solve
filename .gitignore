@@ -12,3 +12,14 @@ main.toc
 main.xdv
 *.fls
 *.fdb_latexmk
+.latex-build/
+结果/
+图/
+论文/
+求解/
+
+# Local development scaffolding (never publish)
+/.agents/
+/.codex/
+/.trellis/
+/AGENTS.md

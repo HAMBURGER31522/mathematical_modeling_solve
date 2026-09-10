@@ -30,7 +30,8 @@
 --------------
 1. n ≥ n_floor(或场景自带 n_floor 覆盖);
 2. 饱和(k==0 或 k==n):verdict 必须为 intermediate,且 analytic_proof 文件存在;
-3. 区间宽度:Wilson 上界 u 满足 u - p̂ ≤ Δ/3;
+3. 区间宽度:Wilson 上界 u 满足 u - p̂ ≤ Δ/3；无阈值或 intermediate 场景必须满足，
+   已由 feasible/excluded 单侧夹逼约束的阈值场景可将超宽区间记为 NOTE;
 4. 阈值场景的夹逼:verdict=feasible 时必须有 adjacent_excluded 且该场景 verdict=excluded;
 5. 独立认证批次:n ≥ n_floor/2,且 |p1-p2| ≤ 2.58·√(se1²+se2²)(2.58 合成标准误);
 6. threshold/resolution/verdict 字段缺失即 FAIL。
@@ -83,8 +84,12 @@ def gate(scenarios: list, n_floor: int) -> tuple[list, list]:
         p_hat = k / n
         u_minus_p = hi - p_hat
         if u_minus_p > res / 3 + 1e-15:
-            notes.append(f"{where} u-p̂={u_minus_p:.5f} > Δ/3={res/3:.5f}"
-                         f"(Δ={res});宽度提示(阈值场景由 lo 侧夹逼判据覆盖)")
+            message = (f"{where} u-p̂={u_minus_p:.5f} > Δ/3={res/3:.5f}"
+                       f"(Δ={res})")
+            if thr is None or verdict == "intermediate":
+                problems.append(message + ";无阈值/中间 verdict 没有单侧决策约束")
+            else:
+                notes.append(message + ";宽度提示(阈值场景由单侧夹逼判据覆盖)")
         if (k == 0 or k == n):
             proof = s.get("analytic_proof")
             if verdict != "intermediate":

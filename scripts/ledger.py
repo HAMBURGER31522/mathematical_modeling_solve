@@ -23,6 +23,7 @@ REQUIRED = ["value", "unit", "display", "role", "source", "status"]
 ROLES = {"authoritative", "cross_check", "intermediate"}
 CERT_METADATA = ("bound", "threshold", "n", "seed", "verdict",
                  "resolved", "delta", "u")
+RESERVED_META_KEY = "__meta__"
 DIGITS = {"0": "Zero", "1": "One", "2": "Two", "3": "Three", "4": "Four",
           "5": "Five", "6": "Six", "7": "Seven", "8": "Eight", "9": "Nine"}
 
@@ -45,6 +46,11 @@ def save(path: str, data: dict) -> None:
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
         f.write("\n")
+
+
+def is_reserved_key(key: object) -> bool:
+    """Reserved top-level metadata must never be treated as a result entry."""
+    return key == RESERVED_META_KEY
 
 
 def macro_name(key: str, entry: dict) -> str:
@@ -73,6 +79,8 @@ def validate(led: dict, warnings: list = None) -> list:
         warnings = []
     seen_authoritative = {}
     for key, e in led.items():
+        if is_reserved_key(key):
+            continue
         where = f"[{key}]"
         if not isinstance(e, dict):
             problems.append(f"{where} 不是对象"); continue
@@ -171,14 +179,18 @@ def cmd_freeze(path: str) -> int:
     base = os.path.dirname(os.path.abspath(path)) or "."
     base = os.path.dirname(base) if os.path.basename(base) == "结果" else base
     missing = 0
+    count = 0
     for key, e in led.items():
+        if is_reserved_key(key):
+            continue
+        count += 1
         cur, notes = depends_state(e, base)
         for n in notes:
             print(f"[{key}] {n}"); missing += 1
         e["depends_hash"] = cur
         e["status"] = "frozen"
     save(path, led)
-    print(f"已冻结 {len(led)} 条；依赖缺失 {missing} 项")
+    print(f"已冻结 {count} 条；依赖缺失 {missing} 项")
     return 1 if missing else 0
 
 
@@ -187,7 +199,11 @@ def cmd_stale(path: str, write: bool) -> int:
     base = os.path.dirname(os.path.abspath(path)) or "."
     base = os.path.dirname(base) if os.path.basename(base) == "结果" else base
     stale = []
+    count = 0
     for key, e in led.items():
+        if is_reserved_key(key):
+            continue
+        count += 1
         cur, notes = depends_state(e, base)
         old = e.get("depends_hash")
         if old is None and e.get("depends_on"):
@@ -203,7 +219,7 @@ def cmd_stale(path: str, write: bool) -> int:
             led[key]["status"] = "stale"
     if write and stale:
         save(path, led)
-    print(f"stale 条目 {len(stale)} / {len(led)}")
+    print(f"stale 条目 {len(stale)} / {count}")
     return 1 if stale else 0
 
 
@@ -213,6 +229,8 @@ def cmd_emit_tex(path: str, out: str) -> int:
              "% 正文只引用这里的宏；改数字请改账本后重新生成。", ""]
     used = {}
     for key, e in sorted(led.items()):
+        if is_reserved_key(key):
+            continue
         if e.get("role") == "intermediate":
             continue
         name = macro_name(key, e)
