@@ -1,6 +1,6 @@
 % ── 附录 ──
 % \label{sec:appendix} 不得删除：latex_gate.py 依赖它切分正文页数与附录页数。
-% 附录承载支撑材料索引、核心代码、环境和复现说明；详细 AI 记录只放独立 PDF。
+% 附录承载支撑材料索引、核心代码、环境和复现说明。
 
 \makeatletter
 \let\@oldaddcontentsline\addcontentsline
@@ -25,21 +25,11 @@
     相对路径 & 类型 & 用途与论文位置 \\
     \midrule
     支撑材料/source/ & 完整源码 & 完整、可运行的项目；入口为支撑材料/source/main.py。 \\
-    \ifaiused
-    支撑材料/AI工具使用详情.pdf & AI详情 & 仅实际使用 AI 时保留；详细记录不在本附录重复。 \\
-    \fi
     支撑材料/data/ & 自行获得数据 & 仅按实际需要提交，并写明来源与处理方式。 \\
     支撑材料/results/ & 补充结果 & 放正文容纳不下的结果、表格或图表。 \\
     \bottomrule
   \end{tabularx}
 \end{table}
-
-\ifaiused
-\subsection*{附录1.1：AI工具使用详情索引}
-\label{app:ai-details}
-
-本队实际使用 AI；详细工具、版本、交互、采纳/修改和人工核验记录见支撑材料/AI工具使用详情.pdf。本附录仅作文件索引，不重复详细记录。
-\fi
 
 \subsection*{附录2：核心源程序节选}
 \label{app:core-code}
@@ -65,5 +55,3 @@ def solve(instance):
 python --version
 python reproduce.py
 \end{verbatim}
-
-实际使用 AI 时，详细工具、版本、交互、采纳/修改和人工核验记录见支撑材料/AI工具使用详情.pdf；未使用时不得提交或列出该文件。

@@ -80,7 +80,7 @@ python scripts/latex_gate.py 论文/.latex-build/main.log --pdf 论文/main.pdf 
 
 实际使用 AI 时，保留真实、简短的用途说明，并在支撑材料中提交由 `assets/supporting-materials/AI工具使用详情.tex` 编译得到的 `AI工具使用详情.pdf`。详细工具、版本、交互、采纳/修改和人工核验不写进论文附录。未使用 AI 时，改用未使用声明，不提交该 PDF。
 
-附录的职责是列出支撑文件、实际环境、复现入口和核心代码节选；完整可运行源码放在 `支撑材料/source/`。`10.附录.tex` 的 `app:support-files`、`app:core-code` 和 `app:reproduction` 标签对应 `assets/delivery/delivery-manifest.json`；实际使用 AI 时还使用 `app:ai-details`。竞赛已提供的原始数据不重复提交，自行获得的数据和大结果按需放入支撑材料。
+附录的职责是列出支撑文件、实际环境、复现入口和核心代码节选；完整可运行源码放在 `支撑材料/source/`。`10.附录.tex` 的 `app:support-files`、`app:core-code` 和 `app:reproduction` 标签对应 `assets/delivery/delivery-manifest.json`。竞赛已提供的原始数据不重复提交，自行获得的数据和大结果按需放入支撑材料。
 
 打包时按 `references/competition-delivery.md` 组装 `交付/`，再运行：
 

@@ -611,7 +611,6 @@ def _make_manifest_delivery_package(tmp, include_reproduce=True):
             {
                 "kind": "ai_tool_use_details",
                 "path": "支撑材料/AI工具使用详情.pdf",
-                "paper_location": "附录1.1：AI工具使用详情索引",
             },
         ],
         "reproduction": {
@@ -622,7 +621,6 @@ def _make_manifest_delivery_package(tmp, include_reproduce=True):
             "app:support-files",
             "app:core-code",
             "app:reproduction",
-            "app:ai-details",
         ],
     }
     (root / "delivery-manifest.json").write_text(
@@ -633,9 +631,7 @@ def _make_manifest_delivery_package(tmp, include_reproduce=True):
         r"\label{app:support-files}",
         r"\label{app:core-code}",
         r"\label{app:reproduction}",
-        r"\label{app:ai-details}",
         "完整源码入口：支撑材料/source/main.py",
-        "AI 详情：支撑材料/AI工具使用详情.pdf",
     ]), encoding="utf-8")
     return root, appendix
 
@@ -651,6 +647,20 @@ def test_delivery_gate_accepts_complete_ai_used_package():
         payload = json.loads(report.read_text(encoding="utf-8"))
         assert payload["verdict"] == "PASS" and not payload["blocking"]
         assert payload["human_audit_required"], "报告不得把人工作业伪装成自动通过"
+
+
+def test_delivery_gate_blocks_ai_details_paper_location():
+    with tempfile.TemporaryDirectory() as tmp:
+        root, appendix = _make_manifest_delivery_package(tmp)
+        manifest_path = root / "delivery-manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["support_items"][1]["paper_location"] = "附录1：支撑材料目录"
+        manifest_path.write_text(json.dumps(manifest, ensure_ascii=False), encoding="utf-8")
+        code, out, err = run(
+            "delivery_gate.py", root, "--appendix-source", appendix,
+            "--out", root / "delivery-report.json",
+        )
+        assert code == 1 and "AI_DETAILS_PAPER_LOCATION_FORBIDDEN" in out + err
 
 
 def test_delivery_gate_blocks_missing_ai_details_pdf():
@@ -691,12 +701,17 @@ def test_competition_delivery_templates_keep_conditional_ai_contract():
     details = read_repo("assets/supporting-materials/AI工具使用详情.tex")
     delivery = read_repo("references/competition-delivery.md")
     readme = read_repo("README.md")
+    manifest = json.loads(read_repo("assets/delivery/delivery-manifest.json"))
 
     assert main.index(r"\input{8.模型改进推广.tex}") < main.index(r"\input{9.参考文献.tex}")
     assert r"\newif\ifaiused" in main and r"\aiusedfalse" in main
     assert r"\ifaiused" in declaration and "未使用 AI 工具" in declaration
-    for label in ("app:support-files", "app:core-code", "app:reproduction", "app:ai-details"):
+    for label in ("app:support-files", "app:core-code", "app:reproduction"):
         assert r"\label{" + label + "}" in appendix
+    assert "AI工具使用详情" not in appendix and r"\ifaiused" not in appendix
+    assert "app:ai-details" not in manifest["appendix_labels"]
+    ai_item = next(item for item in manifest["support_items"] if item["kind"] == "ai_tool_use_details")
+    assert "paper_location" not in ai_item
     for marker in ("AI工具名称", "赛题理解与任务拆解", "代表性交互记录一", "团队主导性确认"):
         assert marker in details
     assert "完整源码才承担复现" in delivery and "AI工具使用详情.pdf" in delivery

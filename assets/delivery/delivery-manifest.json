@@ -18,8 +18,7 @@
     },
     {
       "kind": "ai_tool_use_details",
-      "path": "支撑材料/AI工具使用详情.pdf",
-      "paper_location": "附录1：支撑材料目录"
+      "path": "支撑材料/AI工具使用详情.pdf"
     },
     {
       "kind": "data",
@@ -40,7 +39,6 @@
   "appendix_labels": [
     "app:support-files",
     "app:core-code",
-    "app:reproduction",
-    "app:ai-details"
+    "app:reproduction"
   ]
 }

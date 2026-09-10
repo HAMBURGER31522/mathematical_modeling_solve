@@ -90,7 +90,7 @@ def read_manifest(path):
         return None, str(exc)
 
 
-def validate_appendix(path, labels, source_entrypoints, ai_details, blocking, warnings):
+def validate_appendix(path, labels, source_entrypoints, blocking, warnings):
     if not path:
         add_issue(
             warnings,
@@ -124,13 +124,6 @@ def validate_appendix(path, labels, source_entrypoints, ai_details, blocking, wa
                 "SOURCE_ENTRYPOINT_UNREFERENCED",
                 f"附录没有指向完整源码入口：{entrypoint}",
             )
-    if ai_details and ai_details not in text:
-        add_issue(
-            blocking,
-            "cross-artifact",
-            "AI_DETAILS_UNREFERENCED",
-            f"附录没有列出 AI 详情 PDF：{ai_details}",
-        )
 
 
 def validate(root, manifest, appendix_source=None):
@@ -192,7 +185,15 @@ def validate(root, manifest, appendix_source=None):
             continue
         rel = safe_relative(item.get("path"), f"support_items[{number}].path", blocking, item_layer)
         paper_location = item.get("paper_location")
-        if not isinstance(paper_location, str) or not paper_location.strip():
+        if kind == "ai_tool_use_details":
+            if paper_location not in (None, ""):
+                add_issue(
+                    blocking,
+                    "cross-artifact",
+                    "AI_DETAILS_PAPER_LOCATION_FORBIDDEN",
+                    f"support_items[{number}] 的 AI 详情是独立支撑材料，不得声明论文或附录位置。",
+                )
+        elif not isinstance(paper_location, str) or not paper_location.strip():
             add_issue(
                 blocking,
                 "cross-artifact",
@@ -364,19 +365,10 @@ def validate(root, manifest, appendix_source=None):
             )
         labels = [label for label in labels if isinstance(label, str) and label.strip()]
 
-    if ai_used is True and "app:ai-details" not in labels:
-        add_issue(
-            blocking,
-            "cross-artifact",
-            "AI_APPENDIX_LABEL_REQUIRED",
-            "使用 AI 时 appendix_labels 必须包含 app:ai-details。",
-        )
-
     validate_appendix(
         appendix_source,
         labels,
         source_entrypoints,
-        ai_details,
         blocking,
         warnings,
     )
