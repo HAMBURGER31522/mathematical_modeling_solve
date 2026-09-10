@@ -23,7 +23,7 @@ skill 里那些写得完全正确的规范（共享内核、独立神谕、证�
 > **一条规则要留下，要么它是退出码，要么它是换个更强模型重跑仍会犯的错。**
 > 只有某道题会犯的、只有弱模型会犯的，都不进来。
 
-按这把尺子，v3.3 把散文砍掉大半，脚本从 10 个加到 **19 个**。
+按这把尺子，v3.3 把散文砍掉大半，脚本从 10 个加到 **20 个**。
 
 ### 赛制参数不在 skill 里
 
@@ -71,8 +71,12 @@ CODEX.md        同上（各自是对应工具的入口）
 rules/          「我能做 X 吗」——2 份：建模红线 11+2 条、执行纪律；每条「原则 + 检验句」
 workflows/      「我现在该做什么」——6 份：主链 + 4 条支线 + 兜底
 references/     「这个坑怎么避」+ 角色维度 + 摘要 move + 图式卡 + 方法卡——按触发条件跳读
-scripts/        19 个执行体 + 契约测试
+scripts/        20 个执行体 + 契约测试
 assets/paper/   论文形态契约（cumcmthesis 分节模板，每节带写作合同）
+assets/delivery/            delivery-manifest.json 的交付包清单模板
+assets/supporting-materials/ 独立 AI 工具使用详情 PDF 模板
+tmp/                         可丢弃中间产物（不进入交付）
+交付/                        最终比赛包（生成后直接提交，不纳入 skill 仓）
 ```
 
 **分层判据**：「我能做 X 吗」→ `rules/`；「这个坑怎么避」→ `references/`；
@@ -113,10 +117,11 @@ assets/paper/   论文形态契约（cumcmthesis 分节模板，每节带写作�
 | P6 论文 | `audit_numbers.py` | 论文 ↔ 台账 ↔ 结果文件三向审计，含未走宏的数字清单 |
 | P6 论文 | `refs_check.py` | 参考文献逐条过 Crossref，编造的引用是 rules 维实打实的失分 |
 | P7 打包 | `latex_gate.py` | 编译阻断项 10 类、页数上下限、摘要页由 `.aux` 程序化核实 |
+| P7 打包 | `delivery_gate.py` | 清单、包边界、完整源码入口、条件化 AI 详情文件与附录指路关系；科学性和匿名仍需人工审查 |
 | P7 打包 | `pkg_scan.py` | 已判「合规全 PASS」的交付包里写着真实口令，差一步推上公开仓库 |
 | 维护 | `skill_smoke.py` | skill 自己的自检：行数预算、占位符残留、路由断链、薄壳承重结构、引用锚点 |
 
-`scripts/tests/test_contracts.py` 把每个脚本承诺的行为钉成断言，当前 **98 项全过**。
+`scripts/tests/test_contracts.py` 把每个脚本承诺的行为钉成断言，当前 **103 项全过**。
 **契约测试不过时，"官方脚本不可替代"这句话就是虚假确定性。**
 
 ### 全程产物
@@ -129,9 +134,9 @@ assets/paper/   论文形态契约（cumcmthesis 分节模板，每节带写作�
 | P0 | `结果/拆问卡.md`、`结果/数据体检.md`、`结果/results_ledger.json` |
 | P2 | `求解/qN/选型.md`、`结果/pilot_results.json` |
 | P3 | `求解/core/`、`求解/tests/`、`结果/多种子.json`、冻结的账本 |
-| P5 | `图/`、`图/对照.html`、`图/_contact.png`、`结果/figqa.json` |
+| P5 | 图/、按需的 图/对照.html、图/_contact.png、结果/figqa.json |
 | P6 | `论文/*.tex`、`论文/numbers.tex`、`结果/审计报告.md` |
-| P7 | 交付包、`manifest`、`reproduce.py`、`结果/gates/G<n>.md` |
+| P7 | `交付/论文.pdf`、`delivery-manifest.json`、`reproduce.py`、`支撑材料/source/` 完整源码、实际使用 AI 时的 `AI工具使用详情.pdf`、`结果/gates/G<n>.md` |
 
 **Gate 记录格式固定**：命令原文、退出码、判定、证据路径。
 **没有命令与退出码的记录视为未执行。**
@@ -158,7 +163,7 @@ Coder 实现与计算 ─► Critic P4 科学证伪 ─► Illustrator 出图 �
 | 2 | 执行前评审 | **Modeler** | 独立复核那份建模思路（题型／方法族／主路线与核验路线是否真独立）；**有异议不执行，退回 Coordinator 修订，修订后再复核** | 异议清单 或「无异议，可执行」 |
 | 3 | **P0–P3 实现与计算** | **Coder** | 按放行后的最终规格完成拆问卡、Pilot、共享内核、独立神谕测试、长批、证书与 ledger 冻结 | 实际代码与结果 + 冻结的账本 + 测试、证书、复现材料及各 Gate 退出码 |
 | 4 | **P4 计算后科学证伪** | **Critic** | 只对实际代码、运行结果、测试、证书、复现材料、规模与声明做证伪；不参与 P2 | 带证据位置的缺陷清单，退回 Coder；规格错误退回 Coordinator |
-| 5 | 出图 | **Illustrator** | 三套并行：① 主控自出 ② 执行方按背景与源文件路径出 ③ 执行方模仿指定样例目录出；再生成**对照 HTML** | 三套图 + 对照页 |
+| 5 | 出图 | **Illustrator** | 先由真实结果与待论证结论确定图式；只有候选图确实影响可读性时才生成对照页 | 最终图、必要时的候选对照页、`figqa` 报告 |
 | 6 | 写作 | **Writer** | 摘要、正文、六小节检验章、结论块与汇总表；数字只引用宏 | 论文 tex |
 | 7 | **P6.5 复核** | **Auditor** | 拿**题面原文 + 全部交付物**核十条：最优解是否入文、公式有无写坏、规范文字、数字一致性、证书措辞、图文对应、越级主张、赛制合规、复现声明属实、未决项交代 | 逐条给证据位置的复核意见 |
 | 8 | 终裁与打包 | **Coordinator → Finisher** | 主控确认无误后下发；编译、合规、复现闭环、出门扫描、打包 | 交付包 |
@@ -180,10 +185,11 @@ Modeler 的执行前规格复核就退化成两套方案互相比较，而不是
 必须逐问成章；`design_gate.py` 会检查**每项标题下有没有实质内容**——
 标题都在、每节一句话，肉眼极难判，而它恰恰是最上游、错了代价最大的那份产物。
 
-### 出图的三选一
+### 图表选择（证据驱动）
 
-第 5 步默认**直接采用主控那一套**——用这个 skill 生成文章必然要引用图，流程不能停下来等人选。
-对照 HTML 是留给你事后看的接口：看完告诉主控选哪套，替换即可，其余环节不受影响。
+第 5 步先由真实结果、待论证的结论和读者需要判断的差异确定图式；写不出图的论证目的就不画。
+只有视觉编码、尺度或图式会影响可读性时，才制作候选版本和对照 HTML；比较后只保留一个可复现的最终版本。
+图的数量、类型和制作工具由赛题与证据需要决定，不设固定套数或供应商要求。
 
 样例目录在 `开题.md` 的「目标图样例目录」里指定；模仿的是版面与色彩编码，
 **长相可以仿，数字一个都不许仿**——图里每个数必须来自 `results_ledger.json`。
@@ -210,7 +216,7 @@ Modeler 的执行前规格复核就退化成两套方案互相比较，而不是
 | **Modeler** | 7 | Codex（`astra`，medium） | **复核者不是原创者**——用独立上下文审查 Opus 给出的思路；异议退回 Opus，由 Opus 定稿后再交执行 |
 | **Coder** | 8 | Codex（`gpt-5.6-sol`，max） | 按最终规格完成建模实现、计算、跑批与门禁，要的是稳和快 |
 | **Critic** | 10 | Claude Opus | P4 只对真实代码、结果、测试、证书、复现、规模与声明做计算后科学证伪 |
-| **Illustrator** | 7 | Opus + Codex（`sol`，max goal） | 两方各出一套再加一套模仿版，横向比较 |
+| **Illustrator** | 7 | Opus + Codex（`sol`，max goal） | 以真实结果驱动图式，必要时做候选对照并保留可复现终稿 |
 | **Writer** | 8 | Claude Opus | 写作质量 |
 | **Auditor** | 10 | Codex（`astra`，medium） | P6.5 对成稿与全部交付物做跨产物一致性和合规复核 |
 | **Finisher** | 7 | Codex（`terra`，max） | 编译、合规、打包，机械但要一次做对 |
@@ -295,6 +301,22 @@ Codex 侧读根目录的 `CODEX.md`。两份薄壳把路由表内联进去，**�
 | 「LaTeX 编译不过」 | `latex-fix` |
 
 不需要背命令。路由自己匹配，workflow 在每一步给出要跑的门禁命令。
+
+### P7 交付包
+
+论文保持现有的简要 AI 工具使用声明，位置在参考文献之前；不要新增第二段。实际使用 AI 时，将 assets/supporting-materials/AI工具使用详情.tex 如实填写、编译为支撑材料中的 AI工具使用详情.pdf；未使用时，保持无 AI 声明且不提交该 PDF。
+
+工作区的 tmp/ 只放编译、渲染和分析中间产物。最终交付目录使用 assets/delivery/delivery-manifest.json 建立交付/论文.pdf、delivery-manifest.json、reproduce.py 与 支撑材料/source/ 完整可运行源码；附录只展示核心代码、实际环境和复现入口。
+
+交付前依次运行：
+
+~~~bash
+python scripts/delivery_gate.py 交付/ --appendix-source 论文/10.附录.tex --out 结果/gates/G7-交付清单.json
+python 交付/reproduce.py
+python scripts/pkg_scan.py 交付/ --out 结果/gates/G7-出门扫描.json
+~~~
+
+第一个命令核对可观察的包关系；后两项和人工审查仍负责真实运行、科学性、AI 记录真实性、匿名与数据来源。完整边界见 references/competition-delivery.md。
 
 ### 什么时候不该用它
 

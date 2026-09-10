@@ -6,26 +6,26 @@
   "upstream_commit": "713aa65",
   "files": {
     "format.cls": "bf4751a3914013b38ddaac2fb45f696e13d2742d6a214597fe8aa00b05932b37",
-    "main.tex": "955464feae4b62bd7175417b291c61d3c36b4d350b47c62185cb9792468ad7dd",
-    "0.摘要.tex": "3c77bd9970e02033694794f1388b21bb18c598fa561e722d8181055a47ba5e39",
+    "main.tex": "847d8e1117c25ccbdeee3bd60e91fb580d4ff8615290deccf256431262dfe438",
+    "0.摘要.tex": "9997cb3ce0f8eb73860704d4288e5862e04d927bcf74df89b960dcfe5e663b6c",
     "1.引言.tex": "f20d2c7a7f35107eb346d9fdd147e23e2e4966eefa4b44aaf6c8610967305d34",
-    "10.附录.tex": "f17c8af4d2b0e6917d83173a0acb1a9047367b408161b90b203fa455eae3ff37",
-    "2.总体分析.tex": "cb4a9c3216f5e9cd6c93ac1668244548db170fd4b119f9d0eb4b3313ef5145d7",
+    "10.附录.tex": "e8eee4dbc46e277ec18e7c6c30346df3c891168f0a0e226acf5abf408e914ec8",
+    "2.总体分析.tex": "f7fcf0cc24d7e28ebd41bbc4e96c30d0b1e5641979ce1cbc3b416cf832764a04",
     "3.模型假设.tex": "8d2207f7a36d4c53d7303a5b743d51c0cc68c00cbe453d61db2d07a9dca1d08e",
-    "4.符号说明.tex": "935baa709f09ac8c11e47b8ecd5bb1d9690689a22b116e885e72b6f358047b5d",
-    "5.1.1.分析与准备.tex": "9682dbd63bdcefefd9a0057e7038546b08d181820ab161071ef0ed6728fdc29f",
-    "5.1.2.建模与求解.tex": "40529770c88bb57816d302c82fa7aea704e884f06e21ca95d1690bdd24239758",
-    "5.1.问题1的建立求解.tex": "05a85139963c24437cb0356a15210b84436aacfabc3a7befc87232ad4e779f77",
+    "4.符号说明.tex": "72f80e9b2b13d8d0a38a90dac70621fa8369923dd6141e9d83b4de68768f8abd",
+    "5.1.1.分析与准备.tex": "f440074b18f0e28790be37a955e02eda5ac71ef2d151d1adcee5b36a1d2b6581",
+    "5.1.2.建模与求解.tex": "eb9b01d52581b9336fba864e2a1ceb18023e83f991f31f1742e9a53fc0bcea00",
+    "5.1.问题1的建立求解.tex": "5c3f457a6f1e06c7dae36ab95204f78b7a89e6612b2055e1918d57548e3a08b2",
     "5.模型的建立与求解.tex": "53dcd0ffe58b396e94e818614a920cf8f3dd8f05b3321d98c1e9e50dac85b8c8",
     "6.模型检验.tex": "fb3be062abd1915d38b6e82f57518fb2ceae919a978c18da05d5a60e4a17f1d1",
     "7.模型评价.tex": "bf70a3bcba59867be53ddcf8f8468243647b4a8b61a3ff52869d067822656e7a",
-    "8.模型改进推广.tex": "d396267718ce1eb2f4b76c224d6edc1bd7745a87e199b9fe02d31f71c2d8a61a",
+    "8.模型改进推广.tex": "a428296fc7f5cbccd14a2bf3597fdeea7e110692b5673f6b54c37b9efdd81c2f",
     "9.参考文献.tex": "9a7db51683bd8b14fe5e0e0b7d7be73003f2a599243c51edcb04f3e00c559c81"
   },
   "allowed_diffs": [
-    "模型检验章扩展为六个小节",
-    "模型评价章缺点采用缺陷—影响—改进结构",
-    "附录增加 sec:appendix 标签供页数切分",
-    "主文件保留当前装配适配：numbers.tex 注入、缺失标记及无目录页"
+    "问题分析章按实际 n 问直接进入 2.1—2.n，四问骨架仅作示例，末尾放总体思路图且不设章首总述",
+    "各问题模型章在 5.i 标题后直接放流程图，随后按 5.i.1 模型准备、5.i.2 模型建立、5.i.3 模型求解展开",
+    "摘要采用语义稀疏加重；第 8 章保留参考文献前的简要 AI 声明，附录索引独立详情 PDF、核心代码和复现材料",
+    "模型检验、模型评价、符号表、主文件装配及附录标签保留既有适配"
   ]
 }

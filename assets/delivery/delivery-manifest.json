@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "paper_pdf": "论文.pdf",
+  "support_root": "支撑材料",
+  "ai_use": {
+    "used": true,
+    "details_pdf": "支撑材料/AI工具使用详情.pdf"
+  },
+  "support_items": [
+    {
+      "kind": "source_code",
+      "path": "支撑材料/source",
+      "paper_location": "附录2：源程序与支撑材料",
+      "coverage": "complete_runnable_source",
+      "entrypoints": [
+        "支撑材料/source/main.py"
+      ]
+    },
+    {
+      "kind": "ai_tool_use_details",
+      "path": "支撑材料/AI工具使用详情.pdf",
+      "paper_location": "附录1：支撑材料目录"
+    },
+    {
+      "kind": "data",
+      "path": "支撑材料/data/self_obtained_input.csv",
+      "paper_location": "附录1：支撑材料目录",
+      "origin": "self_obtained"
+    },
+    {
+      "kind": "results",
+      "path": "支撑材料/results/supplemental_results.json",
+      "paper_location": "附录1：支撑材料目录"
+    }
+  ],
+  "reproduction": {
+    "entrypoint": "reproduce.py",
+    "command": "python reproduce.py"
+  },
+  "appendix_labels": [
+    "app:support-files",
+    "app:core-code",
+    "app:reproduction",
+    "app:ai-details"
+  ]
+}

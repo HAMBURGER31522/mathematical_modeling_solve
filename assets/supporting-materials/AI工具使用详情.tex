@@ -1,0 +1,180 @@
+%!TEX program = xelatex
+% 独立支撑材料模板：只填写真实 AI 使用记录；不填写队员姓名、学号、账号、API Key 或其他身份信息。
+\documentclass[UTF8,a4paper,11pt]{ctexart}
+\usepackage[margin=2.2cm]{geometry}
+\usepackage{array,booktabs,longtable,tabularx}
+\usepackage{setspace}
+\usepackage{hyperref}
+
+\setlength{\parindent}{2em}
+\setlength{\parskip}{0.35em}
+\setlength{\tabcolsep}{2pt}
+\renewcommand{\arraystretch}{1.28}
+\newcolumntype{L}{>{\raggedright\arraybackslash}X}
+
+\begin{document}
+
+\begin{center}
+  {\zihao{3}\heiti 2026全国大学生数学建模竞赛\\AI工具使用详情说明\par}
+\end{center}
+
+\noindent 本文件是支撑材料，不并入论文附录。仅记录竞赛中实际发生的 AI 使用；未使用的阶段填“未使用”，不要依据模板补造工具、提示词、回复或验证。
+
+\section*{一、使用的 AI 工具名称、版本和型号}
+
+请列出本队实际使用的全部 AI 工具。版本/型号应具体，主要用途用一句话说明。
+
+\begin{longtable}{p{0.7cm}p{3.0cm}p{3.0cm}p{8.1cm}}
+  \toprule
+  序号 & AI工具名称 & 版本/型号 & 主要用途 \\
+  \midrule
+  \endfirsthead
+  \toprule
+  序号 & AI工具名称 & 版本/型号 & 主要用途 \\
+  \midrule
+  \endhead
+  1 & 【填写】 & 【填写】 & 【填写】 \\
+  2 & 【填写】 & 【填写】 & 【填写】 \\
+  3 & 【填写】 & 【填写】 & 【填写】 \\
+  4 & 【填写】 & 【填写】 & 【填写】 \\
+  \bottomrule
+\end{longtable}
+
+\section*{二、使用目的和阶段}
+
+逐项说明七个工作阶段是否使用 AI，以及它在该阶段具体做了什么。不要只写“辅助建模”；例如可说明“提供多个候选思路，供人工比较筛选”。
+
+\begin{longtable}{p{0.6cm}p{2.5cm}p{1.0cm}p{5.7cm}p{5.3cm}}
+  \toprule
+  序号 & 论文/工作阶段 & 是否使用 & 具体目的 & 使用痕迹或依据 \\
+  \midrule
+  \endfirsthead
+  \toprule
+  序号 & 论文/工作阶段 & 是否使用 & 具体目的 & 使用痕迹或依据 \\
+  \midrule
+  \endhead
+  1 & 赛题理解与任务拆解 & 是/否 & 【填写】 & 【填写】 \\
+  2 & 模型框架与方案构思 & 是/否 & 【填写】 & 【填写】 \\
+  3 & 模型建立与算法设计 & 是/否 & 【填写】 & 【填写】 \\
+  4 & 程序实现与调试 & 是/否 & 【填写】 & 【填写】 \\
+  5 & 结果分析与模型检验 & 是/否 & 【填写】 & 【填写】 \\
+  6 & 论文撰写与语言润色 & 是/否 & 【填写】 & 【填写】 \\
+  7 & 排版与交付（格式、引用、图表等） & 是/否 & 【填写】 & 【填写】 \\
+  \bottomrule
+\end{longtable}
+
+\section*{三、主要提示方式和代表性交互}
+
+先填写主要提示方式；再选取 2--3 条对建模、程序、结果或论文产生实质影响的真实交互。不要粘贴 API Key、账号、姓名或其他敏感信息。
+
+\begin{longtable}{p{0.6cm}p{3.3cm}p{1.1cm}p{9.7cm}}
+  \toprule
+  序号 & 提示方式 & 是否使用 & 主要说明 \\
+  \midrule
+  \endfirsthead
+  \toprule
+  序号 & 提示方式 & 是否使用 & 主要说明 \\
+  \midrule
+  \endhead
+  1 & 网页对话或交互 & 是/否 & 【填写】 \\
+  2 & 编辑器内嵌 AI & 是/否 & 【填写】 \\
+  3 & 上传文件或数据后的对话 & 是/否 & 【填写】 \\
+  4 & AI Agent 或自动化工作流 & 是/否 & 【填写】 \\
+  5 & 其他方式 & 是/否 & 【填写】 \\
+  \bottomrule
+\end{longtable}
+
+\subsection*{代表性交互记录一}
+
+\begin{longtable}{p{3.3cm}p{12.6cm}}
+  \toprule
+  项目 & 如实填写 \\
+  \midrule
+  对应阶段 & 【填写】 \\
+  使用工具及版本 & 【填写】 \\
+  发生时间 & 【填写】 \\
+  提示或输入摘要 & 【填写真实指令或摘要】 \\
+  AI 回复要点 & 【填写真实回复的关键内容】 \\
+  采纳、修改或拒绝 & 直接采纳 / 修改后采用 / 未采用；说明实际修改或拒绝原因。 \\
+  人工核验方式 & 【例如独立计算、对照实验、推导核验、代码测试、数据比对】 \\
+  \bottomrule
+\end{longtable}
+
+\subsection*{代表性交互记录二}
+
+\begin{longtable}{p{3.3cm}p{12.6cm}}
+  \toprule
+  项目 & 如实填写 \\
+  \midrule
+  对应阶段 & 【填写；没有第二条实质交互时删除本表】 \\
+  使用工具及版本 & 【填写】 \\
+  发生时间 & 【填写】 \\
+  提示或输入摘要 & 【填写真实指令或摘要】 \\
+  AI 回复要点 & 【填写真实回复的关键内容】 \\
+  采纳、修改或拒绝 & 直接采纳 / 修改后采用 / 未采用；说明实际修改或拒绝原因。 \\
+  人工核验方式 & 【填写】 \\
+  \bottomrule
+\end{longtable}
+
+\subsection*{代表性交互记录三}
+
+\begin{longtable}{p{3.3cm}p{12.6cm}}
+  \toprule
+  项目 & 如实填写 \\
+  \midrule
+  对应阶段 & 【填写；没有第三条实质交互时删除本表】 \\
+  使用工具及版本 & 【填写】 \\
+  发生时间 & 【填写】 \\
+  提示或输入摘要 & 【填写真实指令或摘要】 \\
+  AI 回复要点 & 【填写真实回复的关键内容】 \\
+  采纳、修改或拒绝 & 直接采纳 / 修改后采用 / 未采用；说明实际修改或拒绝原因。 \\
+  人工核验方式 & 【填写】 \\
+  \bottomrule
+\end{longtable}
+
+\section*{四、AI 内容的采纳、人工修改和核验}
+
+表中只记录 AI 参与的内容。核心建模、推导、程序、结果和结论由团队主导完成；任何 AI 建议都必须经过人工判断和可复核验证。
+
+\begin{longtable}{p{0.6cm}p{3.2cm}p{5.8cm}p{6.0cm}}
+  \toprule
+  序号 & AI 参与内容类别 & 采纳与人工修改说明 & 人工核验方式 \\
+  \midrule
+  \endfirsthead
+  \toprule
+  序号 & AI 参与内容类别 & 采纳与人工修改说明 & 人工核验方式 \\
+  \midrule
+  \endhead
+  1 & 建模思路与方法候选 & 【填写】 & 【填写】 \\
+  2 & 公式推导或理论参考 & 【填写】 & 【填写】 \\
+  3 & 程序编写或调试建议 & 【填写】 & 【填写】 \\
+  4 & 结果分析或模型检验建议 & 【填写】 & 【填写】 \\
+  5 & 论文语言、摘要或结论润色 & 【填写】 & 【填写】 \\
+  6 & 其他内容 & 【填写】 & 【填写】 \\
+  \bottomrule
+\end{longtable}
+
+\section*{五、团队主导性确认}
+
+\begin{longtable}{p{0.6cm}p{5.0cm}p{1.7cm}p{8.3cm}}
+  \toprule
+  序号 & 核心工作 & 是否由本队完成 & 具体人工工作说明 \\
+  \midrule
+  \endfirsthead
+  \toprule
+  序号 & 核心工作 & 是否由本队完成 & 具体人工工作说明 \\
+  \midrule
+  \endhead
+  1 & 模型结构与创新点 & 是/否 & 【填写】 \\
+  2 & 公式推导与关键计算步骤 & 是/否 & 【填写】 \\
+  3 & 算法逻辑与程序实现 & 是/否 & 【填写】 \\
+  4 & 结果解释与最终结论 & 是/否 & 【填写】 \\
+  5 & 论文撰写、图表和排版 & 是/否 & 【填写】 \\
+  \bottomrule
+\end{longtable}
+
+\section*{团队确认}
+
+\noindent 本队确认：以上 AI 工具使用情况真实、完整；本队主导完成竞赛中的核心建模、程序和论文工作；对 AI 生成内容均进行了必要的人工判断和核验，并愿对不实记录承担相应责任。
+
+\end{document}

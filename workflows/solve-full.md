@@ -177,13 +177,9 @@ P-1a 通过之后才开始。**这一关的产物就是方法路线本身**，�
 ## P5 图表（Illustrator）
 
 1. 每张图先写一句「它要让评委看见什么」，并指定它支持的结论、ledger 键与正文落点。写不出就不画。
-2. 按需读 `references/figure-style.md`。**三套并行出图**：
-   - ① 主控自出一套；
-   - ② 执行方按背景、结论与结果文件路径出一套；
-   - ③ 执行方模仿 `开题.md` 指定的样例目录再出一套。
-3. 生成对照页 `图/对照.html`，三套同图并排，便于事后挑选。
-4. **默认采用第 ① 套继续走 P6**——生成文章必然要引用图，流程不停下来等人选。
-   对照页是留给使用者的接口：看完指定用哪套，替换后重跑本阶段门禁即可，其余环节不受影响。
+2. 按需读 `references/figure-style.md`。先选一套由真实结果和论文结论驱动的图式；图的数量、类型和是否制作候选对照由证据需求决定，不设固定套数或特定工具要求。
+3. 只有视觉编码、尺度或图式选择确实影响结论可读性时，才生成候选版本和 `图/对照.html`；比较后保留一个清晰、可复现的最终版本。
+4. 最终图一经选定就继续走 P6；替换图后重跑本阶段门禁，不等待与结论无关的审美比较。
 5. 模仿的是版面与色彩编码，**长相可以仿，数字一个都不许仿**——图里每个数必须来自账本。
 6. `python scripts/figqa.py 图/ --tex 论文/*.tex --out 结果/figqa.json --contact 图/_contact.png`
 7. 目检 contact sheet：重叠、误差带、截断轴、图注自足、缩放比。
@@ -201,7 +197,7 @@ P-1a 通过之后才开始。**这一关的产物就是方法路线本身**，�
 
 **正文与检验**
 
-4. 按需读 `references/abstract-moves.md` 写摘要。
+4. 按需读 `references/abstract-moves.md` 写摘要；按 `references/abstract-emphasis.md` 只加重最小必要的、可回指证据的短语。
 5. 每问写形式化模型、算法段落、结果解读与结论块（最终答案 + 证书 + 适用条件三行）；全文放一张结果汇总表。
 6. 每张正文图后紧跟解读段，按「现象—原因—意义」写；只写「如图 X 所示」不算解读。
 7. 检验章独立成章、六小节缺一不可：双路互证 / 与可核事实对表 / 参数灵敏度 / 样本量与收敛 /
@@ -239,12 +235,11 @@ P-1a 通过之后才开始。**这一关的产物就是方法路线本身**，�
 
 ## P7 编译与打包（Coordinator 确认后交 Finisher）
 
-1. `latexmk -xelatex -halt-on-error -interaction=nonstopmode '-auxdir=论文/.latex-build' '-outdir=论文' 论文/main.tex`；只保留 `论文/main.pdf`，中间文件统一在 `论文/.latex-build/`，验收后可整目录删除。`auxdir` / `outdir` 参数必须整体加引号，避免 Windows PowerShell 拆参。
+1. `latexmk -xelatex -halt-on-error -interaction=nonstopmode '-auxdir=论文/.latex-build' '-outdir=论文' 论文/main.tex`；只保留 `论文/main.pdf`，中间文件统一在 `tmp/` 或 `论文/.latex-build/`，验收后删除。`auxdir` / `outdir` 参数必须整体加引号，避免 Windows PowerShell 拆参。
 2. `python scripts/latex_gate.py 论文/.latex-build/main.log --pdf 论文/main.pdf --aux 论文/.latex-build/main.aux --tex 论文/main.tex --appendix-label sec:appendix --abstract-label abstract:end`
-3. 页数不够时**补附录，不要撑正文**——赛制限的是正文，附录是承载工作量的地方。
-4. 复现闭环：把 `assets/reproduce.py` 复制到交付根目录，填入至少一条真实重算命令
-   （`RECOMPUTE` 默认为空，只跑 `--check-only` 不算通过），解包后在该目录执行默认模式。
-5. `python scripts/pkg_scan.py 交付/`——工作区与交付包是两个安全边界，工作区扫干净不等于包里干净
-   （`references/gotchas.md#delivery-boundary-leaks`）。
-6. 每道 Gate 的记录写进 `结果/gates/G<n>.md`：命令原文、退出码、判定、证据路径。
-   **没有命令与退出码的 Gate 记录视为未执行。**
+3. 页数不够时只补与证据链有关的附录或支撑材料说明，不用无关内容撑页。
+4. 按 `references/competition-delivery.md` 组装 `交付/`：根目录放 `论文.pdf`、`delivery-manifest.json` 和 `reproduce.py`；`支撑材料/source/` 放完整可运行源码。实际使用 AI 时，在支撑材料加入 `AI工具使用详情.pdf`；未使用时不提交该文件。
+5. 把 `assets/reproduce.py` 复制到交付根目录，填入至少一条真实重算命令（`RECOMPUTE` 默认为空，只跑 `--check-only` 不算通过），解包后在该目录执行默认模式。
+6. `python scripts/delivery_gate.py 交付/ --appendix-source 论文/10.附录.tex --out 结果/gates/G7-交付清单.json`；它检查声明、包边界和附录关系，但不代替真实复现和人工审查。
+7. `python scripts/pkg_scan.py 交付/ --out 结果/gates/G7-出门扫描.json`——工作区与交付包是两个安全边界，工作区扫干净不等于包里干净（`references/gotchas.md#delivery-boundary-leaks`）。
+8. 每道 Gate 的记录写进 `结果/gates/G<n>.md`：命令原文、退出码、判定、证据路径。**没有命令与退出码的 Gate 记录视为未执行。**

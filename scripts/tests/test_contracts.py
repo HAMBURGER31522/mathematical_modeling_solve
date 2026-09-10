@@ -556,7 +556,7 @@ def test_reproduce_rejects_missing_runtime_chain():
     with tempfile.TemporaryDirectory() as tmp:
         _make_reproduce_package(tmp, with_runtime=False)
         code, out, _ = subprocess.run([PY, os.path.join(tmp, "reproduce.py"), "--check-only"],
-                                       capture_output=True, env=ENV, text=True).returncode, "", ""
+                                       capture_output=True, env=ENV).returncode, "", ""
         assert code == 1
 
 
@@ -577,6 +577,130 @@ def test_reproduce_accepts_complete_runtime_in_explicit_check_only_mode():
         assert r.returncode == 0, r.stdout.decode("utf-8", "replace")
 
 
+# ---------------------------------------------------------------- 比赛交付契约
+def _make_manifest_delivery_package(tmp, include_reproduce=True):
+    """创建一个最小、可通过的本赛事交付包夹具。"""
+    import shutil
+
+    root = Path(tmp)
+    support = root / "支撑材料"
+    source = support / "source"
+    source.mkdir(parents=True)
+    (source / "main.py").write_text("print('ok')\n", encoding="utf-8")
+    (support / "AI工具使用详情.pdf").write_bytes(b"%PDF-1.4\n")
+    (root / "论文.pdf").write_bytes(b"%PDF-1.4\n")
+    if include_reproduce:
+        shutil.copyfile(os.path.join(ROOT, "assets", "reproduce.py"), root / "reproduce.py")
+
+    manifest = {
+        "schema_version": 1,
+        "paper_pdf": "论文.pdf",
+        "support_root": "支撑材料",
+        "ai_use": {
+            "used": True,
+            "details_pdf": "支撑材料/AI工具使用详情.pdf",
+        },
+        "support_items": [
+            {
+                "kind": "source_code",
+                "path": "支撑材料/source",
+                "paper_location": "附录2：核心源程序节选",
+                "coverage": "complete_runnable_source",
+                "entrypoints": ["支撑材料/source/main.py"],
+            },
+            {
+                "kind": "ai_tool_use_details",
+                "path": "支撑材料/AI工具使用详情.pdf",
+                "paper_location": "附录1.1：AI工具使用详情索引",
+            },
+        ],
+        "reproduction": {
+            "entrypoint": "reproduce.py",
+            "command": "python reproduce.py",
+        },
+        "appendix_labels": [
+            "app:support-files",
+            "app:core-code",
+            "app:reproduction",
+            "app:ai-details",
+        ],
+    }
+    (root / "delivery-manifest.json").write_text(
+        json.dumps(manifest, ensure_ascii=False), encoding="utf-8"
+    )
+    appendix = root / "10.附录.tex"
+    appendix.write_text("\n".join([
+        r"\label{app:support-files}",
+        r"\label{app:core-code}",
+        r"\label{app:reproduction}",
+        r"\label{app:ai-details}",
+        "完整源码入口：支撑材料/source/main.py",
+        "AI 详情：支撑材料/AI工具使用详情.pdf",
+    ]), encoding="utf-8")
+    return root, appendix
+
+
+def test_delivery_gate_accepts_complete_ai_used_package():
+    with tempfile.TemporaryDirectory() as tmp:
+        root, appendix = _make_manifest_delivery_package(tmp)
+        report = root / "delivery-report.json"
+        code, out, err = run(
+            "delivery_gate.py", root, "--appendix-source", appendix, "--out", report
+        )
+        assert code == 0, out + err
+        payload = json.loads(report.read_text(encoding="utf-8"))
+        assert payload["verdict"] == "PASS" and not payload["blocking"]
+        assert payload["human_audit_required"], "报告不得把人工作业伪装成自动通过"
+
+
+def test_delivery_gate_blocks_missing_ai_details_pdf():
+    with tempfile.TemporaryDirectory() as tmp:
+        root, appendix = _make_manifest_delivery_package(tmp)
+        (root / "支撑材料" / "AI工具使用详情.pdf").unlink()
+        code, out, err = run(
+            "delivery_gate.py", root, "--appendix-source", appendix,
+            "--out", root / "delivery-report.json",
+        )
+        assert code == 1 and "ARTIFACT_MISSING" in out + err
+
+
+def test_delivery_gate_blocks_missing_complete_source_entrypoint():
+    with tempfile.TemporaryDirectory() as tmp:
+        root, appendix = _make_manifest_delivery_package(tmp)
+        (root / "支撑材料" / "source" / "main.py").unlink()
+        code, out, err = run(
+            "delivery_gate.py", root, "--appendix-source", appendix,
+            "--out", root / "delivery-report.json",
+        )
+        assert code == 1 and "ARTIFACT_MISSING" in out + err
+
+
+def test_reproduce_accepts_manifest_package_in_check_only_mode():
+    with tempfile.TemporaryDirectory() as tmp:
+        root, _ = _make_manifest_delivery_package(tmp)
+        r = subprocess.run(
+            [PY, root / "reproduce.py", "--check-only"], capture_output=True, env=ENV
+        )
+        assert r.returncode == 0, r.stdout.decode("utf-8", "replace")
+
+
+def test_competition_delivery_templates_keep_conditional_ai_contract():
+    main = read_repo("assets/paper/main.tex")
+    declaration = read_repo("assets/paper/8.模型改进推广.tex")
+    appendix = read_repo("assets/paper/10.附录.tex")
+    details = read_repo("assets/supporting-materials/AI工具使用详情.tex")
+    delivery = read_repo("references/competition-delivery.md")
+    readme = read_repo("README.md")
+
+    assert main.index(r"\input{8.模型改进推广.tex}") < main.index(r"\input{9.参考文献.tex}")
+    assert r"\newif\ifaiused" in main and r"\aiusedfalse" in main
+    assert r"\ifaiused" in declaration and "未使用 AI 工具" in declaration
+    for label in ("app:support-files", "app:core-code", "app:reproduction", "app:ai-details"):
+        assert r"\label{" + label + "}" in appendix
+    for marker in ("AI工具名称", "赛题理解与任务拆解", "代表性交互记录一", "团队主导性确认"):
+        assert marker in details
+    assert "完整源码才承担复现" in delivery and "AI工具使用详情.pdf" in delivery
+    assert "delivery_gate.py" in readme and "AI工具使用详情.pdf" in readme and "tmp/" in readme
 def test_paper_and_runtime_keep_fragments_are_explicit():
     """写作合同必须落在任务路径上（v3.3：运行时 JSON 链已废除，改由 ledger 单链承担）。"""
     workflow = read_repo("workflows/solve-full.md")
@@ -1033,18 +1157,18 @@ def test_published_skill_carries_no_lab_narrative():
     # 放行检测器自身：它的职责就是识别这些模式，文档里说明自己检测什么不算泄漏
     exempt = {"scripts/pkg_scan.py"}
     offenders = []
-    for dirpath, dirnames, filenames in os.walk(ROOT):
-        dirnames[:] = [d for d in dirnames if d not in (".git", "__pycache__", "tests", "fonts")]
-        for name in filenames:
-            if not name.endswith((".md", ".yaml", ".py")):
-                continue
-            rel = os.path.relpath(os.path.join(dirpath, name), ROOT).replace(chr(92), "/")
-            if rel in exempt:
-                continue
-            text = read_repo(rel) or ""
-            for token, why in banned.items():
-                if token in text:
-                    offenders.append("%s 含 %r（%s）" % (rel, token, why))
+    tracked = subprocess.check_output(
+        ["git", "-C", ROOT, "-c", "core.quotepath=false", "ls-files", "--cached", "--others", "--exclude-standard"], text=True, encoding="utf-8"
+    ).splitlines()
+    for rel in tracked:
+        if rel.startswith("scripts/tests/") or not rel.endswith((".md", ".yaml", ".py")):
+            continue
+        if rel in exempt:
+            continue
+        text = read_repo(rel) or ""
+        for token, why in banned.items():
+            if token in text:
+                offenders.append("%s 含 %r（%s）" % (rel, token, why))
     assert not offenders, "已发布的 skill 里残留实验室叙事:" + chr(10) + chr(10).join(offenders)
 
 
@@ -1609,10 +1733,12 @@ def test_repository_root_carries_no_foreign_scaffolding():
         "routing.yaml", "开题.md",
         "rules", "workflows", "references", "scripts", "assets",
     }
-    # 运行期产物与本地缓存不算污染，但也不该被提交（已在 .gitignore 里）
-    tolerated = {"__pycache__", "结果", "图", "论文", "求解"}
-    found = {name for name in os.listdir(ROOT)}
-    foreign = sorted(found - allowed - tolerated)
+    # 只审将进入发布包的已跟踪条目；本地工作目录必须由 .gitignore 隔离。
+    tracked = subprocess.check_output(
+        ["git", "-C", ROOT, "-c", "core.quotepath=false", "ls-files", "--cached", "--others", "--exclude-standard"], text=True, encoding="utf-8"
+    ).splitlines()
+    found = {path.split("/", 1)[0] for path in tracked}
+    foreign = sorted(found - allowed)
     assert not foreign, (
         "仓库根目录出现了不属于本 skill 的条目：" + ", ".join(foreign)
         + "。skill 仓只装 skill 本身；别的工具的脚手架请留在它自己的工作目录。")

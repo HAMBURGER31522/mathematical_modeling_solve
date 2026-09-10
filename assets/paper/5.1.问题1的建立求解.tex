@@ -1,11 +1,34 @@
-% ── 全文通用形态（Mrite 高教社杯规范）──
-% 正文一律自然段；禁分点符号、禁 \textbf（摘要“针对问题X”与问题重述“问题N：”除外）。
-% 本节合同显式要求的结构（如 itemize、\textbf 或分点）属于模板既定例外，以本节合同为准。
-% 跨页表用 longtable，短表用 tabularx；列宽比例总和 = 1.04 − 0.04 × N（N 为列数），格内文字不换行。
-% 图宽 0.8\textwidth，表宽 \textwidth；图题交给 \caption，绘图代码不写 set_title()；图表必须在正文被引用。
-% 章与章、节与节之间一律不加 \newpage。
-%
+% ── 问题一模板 ──
+% 本文件负责 5.1 标题、问题一流程图和 5.1.x 分节装配。
+% 流程图不设置 \subsubsection，直接位于“问题一的模型的建立和求解”标题之后。
+% 问题二至题面实际第 n 问复制本文件后，统一修改标题、标签、文字和 \input 路径。
+
 \subsection{问题一的模型的建立和求解}
+
+\begin{figure}[H]
+  \centering
+  \begin{tikzpicture}[node distance=0.7cm and 0.55cm]
+    \node[flowbox] (n11) {数据理解};
+    \node[flowbox, right=of n11] (n12) {数据预处理};
+    \node[flowbox, right=of n12] (n13) {变量关系};
+    \node[flowbox, below=of n11] (n21) {模型假设};
+    \node[flowbox, below=of n12] (n22) {模型建立};
+    \node[flowbox, below=of n13] (n23) {参数求解};
+    \node[flowbox, below=of n21] (n31) {模型检验};
+    \node[flowbox, below=of n22] (n32) {结果分析};
+    \node[flowbox, below=of n23] (n33) {结论输出};
+    \draw[arrow] (n11) -- (n12);
+    \draw[arrow] (n12) -- (n13);
+    \draw[arrow] (n13) -- (n23);
+    \draw[arrow] (n23) -- (n22);
+    \draw[arrow] (n22) -- (n21);
+    \draw[arrow] (n21) -- (n31);
+    \draw[arrow] (n31) -- (n32);
+    \draw[arrow] (n32) -- (n33);
+  \end{tikzpicture}
+  \caption{问题一建模思路图}
+  \label{fig:problem1_flow}
+\end{figure}
 
 \input{5.1.1.分析与准备.tex}
 

@@ -20,6 +20,19 @@ import sys
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 FAILS, WARNS = [], []
 
+# These paths are ignored local workspace state. Publication-boundary tests
+# separately inspect tracked files, so this reference scanner need not parse
+# Trellis task records, editor settings, render output, or disposable builds.
+REFERENCE_SCAN_EXCLUDED_DIRS = {
+    ".agents", ".codex", ".git", ".latex-build", ".trellis",
+    "__pycache__", "fonts", "tests", "tmp",
+}
+REFERENCE_SCAN_EXCLUDED_PREFIXES = ("qa-render-",)
+
+
+def is_reference_scan_dir(name):
+    return name in REFERENCE_SCAN_EXCLUDED_DIRS or name.startswith(REFERENCE_SCAN_EXCLUDED_PREFIXES)
+
 
 def read(rel):
     path = os.path.join(ROOT, rel)
@@ -162,8 +175,7 @@ def main():
     PAT_MD = re.compile("`(" + SKILL_DIRS + r"/[^`\s]+)`")
     PAT_SRC = re.compile(r"(?<![\w/])(" + SKILL_DIRS + r"/[\w./\u4e00-\u9fff-]+\.\w+)")
     for dirpath, dirnames, filenames in os.walk(ROOT):
-        dirnames[:] = [d for d in dirnames
-                       if d not in (".git", "__pycache__", "fonts", "tests")]
+        dirnames[:] = [d for d in dirnames if not is_reference_scan_dir(d)]
         for name in filenames:
             ext = os.path.splitext(name)[1]
             if ext not in (".md", ".py", ".sh", ".yaml"):

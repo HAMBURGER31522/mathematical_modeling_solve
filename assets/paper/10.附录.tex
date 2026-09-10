@@ -1,14 +1,7 @@
-% ── 全文通用形态（Mrite 高教社杯规范）──
-% 正文一律自然段；禁分点符号、禁 \textbf（摘要“针对问题X”与问题重述“问题N：”除外）。
-% 本节合同显式要求的结构（如 itemize、\textbf 或分点）属于模板既定例外，以本节合同为准。
-% 跨页表用 longtable，短表用 tabularx；列宽比例总和 = 1.04 − 0.04 × N（N 为列数），格内文字不换行。
-% 图宽 0.8\textwidth，表宽 \textwidth；图题交给 \caption，绘图代码不写 set_title()；图表必须在正文被引用。
-% 章与章、节与节之间一律不加 \newpage。
-% ── 本节合同 ──
-% \label{sec:appendix} 不得删除：latex_gate.py --appendix-label 依赖它切分正文页数与附录页数。
-% 附录不限页，是承载工作量的地方：结果明细表、补充图表、源程序、推导全过程、复现说明、AI 声明详情。
-% 正文压不下的内容移到这里，不要删；正文须有指路句。
-%
+% ── 附录 ──
+% \label{sec:appendix} 不得删除：latex_gate.py 依赖它切分正文页数与附录页数。
+% 附录承载支撑材料索引、核心代码、环境和复现说明；详细 AI 记录只放独立 PDF。
+
 \makeatletter
 \let\@oldaddcontentsline\addcontentsline
 \renewcommand{\addcontentsline}[3]{}
@@ -17,17 +10,60 @@
 \let\addcontentsline\@oldaddcontentsline
 \makeatother
 
+\subsection*{附录1：支撑材料目录}
+\label{app:support-files}
+
+逐项列出随论文提交的支撑材料，路径与 delivery-manifest.json 保持一致。竞赛已提供的原始数据不重复提交；自行获得的数据才可在支撑材料中列出。
+
 \begin{table}[H]
   \centering
-  \caption{附件说明表}
-  \label{tab:appendix}
+  \caption{支撑材料目录}
+  \label{tab:appendix_files}
   \renewcommand{\arraystretch}{1.2}
-  \begin{tabularx}{\textwidth}{LX}
+  \begin{tabularx}{\textwidth}{LXX}
     \toprule
-    文件 & 说明 \\
+    相对路径 & 类型 & 用途与论文位置 \\
     \midrule
-    问题一\_xxx.py & 问题1求解代码 \\
-    xxx.png & xxx图 \\
+    支撑材料/source/ & 完整源码 & 完整、可运行的项目；入口为支撑材料/source/main.py。 \\
+    \ifaiused
+    支撑材料/AI工具使用详情.pdf & AI详情 & 仅实际使用 AI 时保留；详细记录不在本附录重复。 \\
+    \fi
+    支撑材料/data/ & 自行获得数据 & 仅按实际需要提交，并写明来源与处理方式。 \\
+    支撑材料/results/ & 补充结果 & 放正文容纳不下的结果、表格或图表。 \\
     \bottomrule
   \end{tabularx}
 \end{table}
+
+\ifaiused
+\subsection*{附录1.1：AI工具使用详情索引}
+\label{app:ai-details}
+
+本队实际使用 AI；详细工具、版本、交互、采纳/修改和人工核验记录见支撑材料/AI工具使用详情.pdf。本附录仅作文件索引，不重复详细记录。
+\fi
+
+\subsection*{附录2：核心源程序节选}
+\label{app:core-code}
+
+本节只放说明模型逻辑所需的核心代码，不打印整个项目。完整可运行源码及依赖文件位于支撑材料/source/，实际入口为支撑材料/source/main.py。
+
+\begin{verbatim}
+# Replace with the model's core logic.
+def solve(instance):
+    # model construction, key constraint, and decision logic
+    ...
+\end{verbatim}
+
+节选应对应正文的模型、约束或求解逻辑；不得把这一小段节选说成完整源码。
+
+\subsection*{附录3：运行环境与复现说明}
+\label{app:reproduction}
+
+请如实写明语言、版本、依赖、操作系统条件、输入输出位置和复现命令。最终包根目录的 reproduce.py 应执行至少一条真实的最小重算命令，而不是只做文件存在性检查。
+
+\begin{verbatim}
+# Example only. Replace with the actual environment and command.
+python --version
+python reproduce.py
+\end{verbatim}
+
+实际使用 AI 时，详细工具、版本、交互、采纳/修改和人工核验记录见支撑材料/AI工具使用详情.pdf；未使用时不得提交或列出该文件。

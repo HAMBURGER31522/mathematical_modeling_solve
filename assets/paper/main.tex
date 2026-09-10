@@ -13,12 +13,18 @@
 \newcolumntype{R}{>{\raggedleft\arraybackslash}X}
 \newcolumntype{L}{>{\raggedright\arraybackslash}X}
 
+% Only change this to \aiusedtrue when the team actually used AI.
+% The brief declaration remains immediately before References in either case.
+\newif\ifaiused
+\aiusedfalse
+
 \renewcommand{\textbf}[1]{{\song\bfseries #1}}
 
 \usepackage{tikz}
-\usetikzlibrary{arrows.meta}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric}
 \tikzset{
-  box/.style={rectangle, draw, minimum width=3.2cm, minimum height=0.9cm, align=center},
+  box/.style={rectangle, draw, minimum width=3.2cm, minimum height=0.9cm, align=center, inner sep=4pt},
+  flowbox/.style={box, text width=3.2cm, font=\small},
   arrow/.style={thick, -{Stealth}}
 }
 

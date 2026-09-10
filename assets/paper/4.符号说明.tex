@@ -6,14 +6,14 @@
 % 章与章、节与节之间一律不加 \newpage。
 % ── 本节合同 ──
 % 本节的表格写法是全文样板，其余各章一律沿用（跨页表含 \endfirsthead/\endhead/\endfoot 固定结构）。
-% 2 列取 0.18+0.78；列宽比例总和必须等于 1.04 − 0.04 × N。
+% 2 列取 0.17+0.73，给 longtable 的列间距留出余量。
 %
 \section{符号说明}
 
 本文使用的主要符号及其含义如表\ref{tab:符号说明}所示。
 
 % longtable：可跨页，>{\centering\arraybackslash}p{} 居中，比例按内容调整
-\begin{longtable}{>{\centering\arraybackslash}p{0.18\textwidth}>{\centering\arraybackslash}p{0.78\textwidth}}
+\begin{longtable}{>{\centering\arraybackslash}p{0.17\textwidth}>{\centering\arraybackslash}p{0.73\textwidth}}
   \caption{符号说明}
   \label{tab:符号说明} \\
   \toprule
